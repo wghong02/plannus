@@ -69,27 +69,24 @@ export default function NewTaskModal({
 		<Modal visible={visible} transparent animationType="slide">
 			<View style={styles.overlay}>
 				<View style={styles.bottomSheet}>
+					<View style={styles.header}>
+						<TouchableOpacity onPress={onCancel} style={styles.headerButton}>
+							<Text style={styles.cancelText}>Cancel</Text>
+						</TouchableOpacity>
+						<Text style={styles.headerTitle}>New Task</Text>
+						<TouchableOpacity
+							onPress={() => onSave(title, selectedTime, notes)}
+							style={styles.headerButton}
+						>
+							<Text style={styles.saveText}>Save</Text>
+						</TouchableOpacity>
+					</View>
+
 					<KeyboardAvoidingView
 						behavior={Platform.OS === "ios" ? "padding" : undefined}
 						style={{ flex: 1 }}
 					>
 						<ScrollView contentContainerStyle={styles.content}>
-							<View style={styles.header}>
-								<TouchableOpacity
-									onPress={onCancel}
-									style={styles.headerButton}
-								>
-									<Text style={styles.cancelText}>Cancel</Text>
-								</TouchableOpacity>
-								<Text style={styles.headerTitle}>New Task</Text>
-								<TouchableOpacity
-									onPress={() => onSave(title, selectedTime, notes)}
-									style={styles.headerButton}
-								>
-									<Text style={styles.saveText}>Save</Text>
-								</TouchableOpacity>
-							</View>
-
 							{/* Section 1: Description */}
 							<Text style={styles.sectionLabel}>{titleLabel}</Text>
 							<TextInput
@@ -181,6 +178,9 @@ const styles = StyleSheet.create({
 		alignItems: "center",
 		justifyContent: "space-between",
 		marginBottom: 16,
+		paddingTop: 20,
+		paddingLeft: 20,
+		paddingRight: 20,
 	},
 	headerButton: {
 		padding: 8,

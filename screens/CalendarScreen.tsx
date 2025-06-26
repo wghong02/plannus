@@ -37,11 +37,6 @@ export default function CalendarScreen() {
 		})();
 	}, []);
 
-	// Save to AsyncStorage
-	useEffect(() => {
-		saveTasks(task);
-	}, [task]);
-
 	const handleAddTask = () => {
 		setEditIndex(null);
 		setModalInitialTitle("");
@@ -59,7 +54,7 @@ export default function CalendarScreen() {
 		setShowTaskModal(true);
 	};
 
-	const handleSaveTask = (title: string, time: string, notes: string) => {
+	const handleSaveTask = async (title: string, time: string, notes: string) => {
 		if (!title) {
 			setShowTaskModal(false);
 			return;
@@ -84,9 +79,17 @@ export default function CalendarScreen() {
 			updatedItems = [...items, newTask];
 		}
 		updatedItems.sort((a, b) => a.time.localeCompare(b.time));
-		setTask({ ...task, [selectedDate]: updatedItems });
-		setShowTaskModal(false);
-		setEditIndex(null);
+		const updatedTask = { ...task, [selectedDate]: updatedItems };
+
+		try {
+			await saveTasks(updatedTask);
+			setTask(updatedTask);
+			setShowTaskModal(false);
+			setEditIndex(null);
+		} catch (error) {
+			console.error("Failed to save task:", error);
+			// You might want to show an alert here to inform the user
+		}
 	};
 
 	const handleDelete = (index: number) => {
