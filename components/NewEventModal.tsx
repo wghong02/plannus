@@ -34,24 +34,6 @@ interface NewEventModalProps {
 	titleLabel?: string;
 }
 
-const generateHours = () => {
-	const hours = [];
-	for (let hour = 0; hour < 24; hour++) {
-		hours.push(hour.toString().padStart(2, "0"));
-	}
-	return hours;
-};
-
-const generateMinutes = () => {
-	const minutes = [];
-	for (let minute = 0; minute < 60; minute += 15) {
-		minutes.push(minute.toString().padStart(2, "0"));
-	}
-	return minutes;
-};
-
-const generateAMPM = () => ["AM", "PM"];
-
 export default function NewEventModal({
 	visible,
 	onCancel,

@@ -1,23 +1,25 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { EventMap } from "../models";
 
-const STORAGE_KEY = "event";
-
-export async function loadEvents(): Promise<EventMap> {
+export async function loadEvents(storageKey: string): Promise<EventMap> {
 	console.log("loading events for storage");
-	const json = await AsyncStorage.getItem(STORAGE_KEY);
+	const json = await AsyncStorage.getItem(storageKey);
 	return json ? JSON.parse(json) : {};
 }
 
-export async function saveEvents(events: EventMap): Promise<void> {
+export async function saveEvents(
+	events: EventMap,
+	storageKey: string
+): Promise<void> {
 	console.log("saving events to storage", events);
-	await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(events));
+	await AsyncStorage.setItem(storageKey, JSON.stringify(events));
 }
 
 export async function deleteEvent(
 	events: EventMap,
 	date: string,
-	index: number
+	index: number,
+	storageKey: string
 ): Promise<EventMap> {
 	console.log("deleting event from storage", events, date, index);
 
@@ -28,11 +30,11 @@ export async function deleteEvent(
 	// If no events left, delete the date
 	if (updatedItems.length === 0) {
 		const { [date]: deleted, ...remainingEvents } = events;
-		await saveEvents(remainingEvents);
+		await saveEvents(remainingEvents, storageKey);
 		return remainingEvents;
 	}
 
 	const updatedEvents = { ...events, [date]: updatedItems };
-	await saveEvents(updatedEvents);
+	await saveEvents(updatedEvents, storageKey);
 	return updatedEvents;
 }

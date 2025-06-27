@@ -34,7 +34,7 @@ export default function CalendarScreen() {
 	// Load from AsyncStorage
 	useEffect(() => {
 		(async () => {
-			const loaded = await loadEvents();
+			const loaded = await loadEvents(STORAGE_KEY);
 			setEvent(loaded);
 		})();
 	}, []);
@@ -110,7 +110,7 @@ export default function CalendarScreen() {
 		const updatedEvent = { ...event, [selectedDate]: updatedItems };
 
 		try {
-			await saveEvents(updatedEvent);
+			await saveEvents(updatedEvent, STORAGE_KEY);
 			setEvent(updatedEvent);
 			setShowEventModal(false);
 			setEditIndex(null);
@@ -127,7 +127,12 @@ export default function CalendarScreen() {
 				text: "Delete",
 				style: "destructive",
 				onPress: async () => {
-					const updated = await deleteEvent(event, selectedDate, index);
+					const updated = await deleteEvent(
+						event,
+						selectedDate,
+						index,
+						STORAGE_KEY
+					);
 					setEvent(updated);
 					setEditIndex(null);
 				},
