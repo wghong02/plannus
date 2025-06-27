@@ -26,8 +26,10 @@ export default function CalendarScreen() {
 	const [editIndex, setEditIndex] = useState<number | null>(null);
 	const [showTaskModal, setShowTaskModal] = useState(false);
 	const [modalInitialTitle, setModalInitialTitle] = useState("");
-	const [modalInitialTime, setModalInitialTime] = useState("09:00");
+	const [modalInitialStartTime, setModalInitialStartTime] = useState("");
+	const [modalInitialEndTime, setModalInitialEndTime] = useState("");
 	const [modalInitialNotes, setModalInitialNotes] = useState("");
+	const [modalInitialAllDay, setModalInitialAllDay] = useState(false);
 
 	// Load from AsyncStorage
 	useEffect(() => {
@@ -37,11 +39,19 @@ export default function CalendarScreen() {
 		})();
 	}, []);
 
+	// Reset modal state when modal closes
+	useEffect(() => {
+		if (!showTaskModal) {
+			setModalInitialTitle("New Task");
+			setModalInitialStartTime("08:00");
+			setModalInitialEndTime("09:00");
+			setModalInitialNotes("");
+			setModalInitialAllDay(false);
+		}
+	}, [showTaskModal]);
+
 	const handleAddTask = () => {
 		setEditIndex(null);
-		setModalInitialTitle("");
-		setModalInitialTime("09:00");
-		setModalInitialNotes("");
 		setShowTaskModal(true);
 	};
 
@@ -49,12 +59,20 @@ export default function CalendarScreen() {
 		const item = task[selectedDate][index];
 		setEditIndex(index);
 		setModalInitialTitle(item.title);
-		setModalInitialTime(item.time);
+		setModalInitialStartTime(item.startTime || "");
+		setModalInitialEndTime(item.endTime || "");
 		setModalInitialNotes(item.notes || "");
+		setModalInitialAllDay(item.allDay || false);
 		setShowTaskModal(true);
 	};
 
-	const handleSaveTask = async (title: string, time: string, notes: string) => {
+	const handleSaveTask = async (
+		title: string,
+		startTime: string,
+		endTime: string,
+		notes: string,
+		allDay: boolean
+	) => {
 		if (!title) {
 			setShowTaskModal(false);
 			return;
@@ -66,19 +84,29 @@ export default function CalendarScreen() {
 			updatedItems[editIndex] = {
 				id: updatedItems[editIndex].id,
 				title,
-				time,
+				allDay,
+				startTime,
+				endTime,
 				notes,
 			};
 		} else {
 			const newTask: Task = {
 				id: Date.now().toString(),
 				title,
-				time,
+				allDay,
+				startTime,
+				endTime,
 				notes,
 			};
 			updatedItems = [...items, newTask];
 		}
-		updatedItems.sort((a, b) => a.time.localeCompare(b.time));
+		// Sort by start time if available, otherwise by title
+		updatedItems.sort((a, b) => {
+			if (a.startTime && b.startTime) {
+				return a.startTime.localeCompare(b.startTime);
+			}
+			return a.title.localeCompare(b.title);
+		});
 		const updatedTask = { ...task, [selectedDate]: updatedItems };
 
 		try {
@@ -118,66 +146,82 @@ export default function CalendarScreen() {
 	const taskItems = task[selectedDate] || [];
 
 	return (
-		<TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-			<KeyboardAvoidingView
-				style={styles.container}
-				behavior={Platform.OS === "ios" ? "padding" : "height"}
-				keyboardVerticalOffset={80}
-			>
-				<Calendar
-					onDayPress={(day) => setSelectedDate(day.dateString)}
-					markedDates={{
-						[selectedDate]: { selected: true, selectedColor: "blue" },
-					}}
-				/>
+		<>
+			<TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+				<KeyboardAvoidingView
+					style={styles.container}
+					behavior={Platform.OS === "ios" ? "padding" : "height"}
+					keyboardVerticalOffset={80}
+				>
+					<Calendar
+						onDayPress={(day) => setSelectedDate(day.dateString)}
+						markedDates={{
+							[selectedDate]: { selected: true, selectedColor: "blue" },
+						}}
+					/>
 
-				{selectedDate ? (
-					<View style={styles.taskContainer}>
-						<Text style={styles.taskTitle}>Tasks for {selectedDate}</Text>
+					{selectedDate ? (
+						<View style={styles.taskContainer}>
+							<Text style={styles.taskTitle}>Tasks for {selectedDate}</Text>
 
-						<FlatList
-							data={taskItems}
-							keyExtractor={(item) => item.id}
-							ListEmptyComponent={
-								<Text style={styles.noItems}>No tasks yet</Text>
-							}
-							renderItem={({ item, index }) => (
-								<View style={styles.taskItem}>
-									<View style={styles.taskTimeContainer}>
-										<Text style={styles.taskTime}>{formatTime(item.time)}</Text>
+							<FlatList
+								data={taskItems}
+								keyExtractor={(item) => item.id}
+								ListEmptyComponent={
+									<Text style={styles.noItems}>No tasks yet</Text>
+								}
+								renderItem={({ item, index }) => (
+									<View style={styles.taskItem}>
+										<TouchableOpacity
+											style={styles.itemTextContainer}
+											onPress={() => handleEdit(index)}
+										>
+											<Text style={styles.taskItemTitle}>{item.title}</Text>
+										</TouchableOpacity>
+										<View style={styles.taskTimeContainer}>
+											{item.startTime && (
+												<Text style={styles.taskTime}>
+													{formatTime(item.startTime)}
+												</Text>
+											)}
+											{item.endTime && (
+												<Text style={styles.taskEndTime}>
+													{formatTime(item.endTime)}
+												</Text>
+											)}
+										</View>
+										<TouchableOpacity onPress={() => handleDelete(index)}>
+											<Text style={styles.deleteButton}>✕</Text>
+										</TouchableOpacity>
 									</View>
-									<TouchableOpacity
-										style={styles.itemTextContainer}
-										onPress={() => handleEdit(index)}
-									>
-										<Text style={styles.taskItemTitle}>{item.title}</Text>
-									</TouchableOpacity>
-									<TouchableOpacity onPress={() => handleDelete(index)}>
-										<Text style={styles.deleteButton}>✕</Text>
-									</TouchableOpacity>
-								</View>
-							)}
-							style={styles.flatList}
-						/>
+								)}
+								style={styles.flatList}
+							/>
 
-						<TouchableOpacity style={styles.addButton} onPress={handleAddTask}>
-							<Text style={styles.addButtonText}>+ Add Task</Text>
-						</TouchableOpacity>
-					</View>
-				) : (
-					<Text style={styles.selectPrompt}>Select a date to view tasks</Text>
-				)}
+							<TouchableOpacity
+								style={styles.addButton}
+								onPress={handleAddTask}
+							>
+								<Text style={styles.addButtonText}>+ Add Task</Text>
+							</TouchableOpacity>
+						</View>
+					) : (
+						<Text style={styles.selectPrompt}>Select a date to view tasks</Text>
+					)}
+				</KeyboardAvoidingView>
+			</TouchableWithoutFeedback>
 
-				<NewTaskModal
-					visible={showTaskModal}
-					onCancel={() => setShowTaskModal(false)}
-					onSave={handleSaveTask}
-					initialTitle={modalInitialTitle}
-					initialTime={modalInitialTime}
-					initialNotes={modalInitialNotes}
-				/>
-			</KeyboardAvoidingView>
-		</TouchableWithoutFeedback>
+			<NewTaskModal
+				visible={showTaskModal}
+				onCancel={() => setShowTaskModal(false)}
+				onSave={handleSaveTask}
+				initialTitle={modalInitialTitle}
+				initialStartTime={modalInitialStartTime}
+				initialEndTime={modalInitialEndTime}
+				initialNotes={modalInitialNotes}
+				initialAllDay={modalInitialAllDay}
+			/>
+		</>
 	);
 }
 
@@ -240,5 +284,9 @@ const styles = StyleSheet.create({
 		color: "white",
 		fontSize: 16,
 		fontWeight: "bold",
+	},
+	taskEndTime: {
+		fontSize: 12,
+		color: "#888",
 	},
 });

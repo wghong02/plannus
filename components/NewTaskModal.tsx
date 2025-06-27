@@ -12,58 +12,105 @@ import {
 	KeyboardAvoidingView,
 	Platform,
 } from "react-native";
+import { formatTime } from "../utils/functions";
+import TimePickerWheel from "./TimePickerWheel";
 
 interface NewTaskModalProps {
 	visible: boolean;
 	onCancel: () => void;
-	onSave: (title: string, time: string, notes: string) => void;
+	onSave: (
+		title: string,
+		startTime: string,
+		endTime: string,
+		notes: string,
+		allDay: boolean
+	) => void;
 	initialTitle?: string;
-	initialTime?: string;
+	initialStartTime?: string;
+	initialEndTime?: string;
 	initialNotes?: string;
+	initialAllDay?: boolean;
 
 	titleLabel?: string;
 }
 
-const generateTimeOptions = () => {
-	const times = [];
+const generateHours = () => {
+	const hours = [];
 	for (let hour = 0; hour < 24; hour++) {
-		for (let minute = 0; minute < 60; minute += 30) {
-			const timeString = `${hour.toString().padStart(2, "0")}:${minute
-				.toString()
-				.padStart(2, "0")}`;
-			times.push(timeString);
-		}
+		hours.push(hour.toString().padStart(2, "0"));
 	}
-	return times;
+	return hours;
 };
 
-const formatTime = (time: string) => {
-	const [hours, minutes] = time.split(":");
-	const hour = parseInt(hours);
-	const ampm = hour >= 12 ? "PM" : "AM";
-	const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
-	return `${displayHour}:${minutes} ${ampm}`;
+const generateMinutes = () => {
+	const minutes = [];
+	for (let minute = 0; minute < 60; minute += 15) {
+		minutes.push(minute.toString().padStart(2, "0"));
+	}
+	return minutes;
 };
+
+const generateAMPM = () => ["AM", "PM"];
 
 export default function NewTaskModal({
 	visible,
 	onCancel,
 	onSave,
-	initialTitle = "",
-	initialTime = "09:00",
+	initialTitle = "New Task",
+	initialStartTime = "08:00",
+	initialEndTime = "09:00",
 	initialNotes = "",
-	titleLabel = "Task Description",
+	initialAllDay = false,
 }: NewTaskModalProps) {
 	const [title, setTitle] = useState(initialTitle);
-	const [selectedTime, setSelectedTime] = useState(initialTime);
+	const [startTime, setStartTime] = useState(initialStartTime);
+	const [endTime, setEndTime] = useState(initialEndTime);
 	const [notes, setNotes] = useState(initialNotes);
-	const [showTimeDropdown, setShowTimeDropdown] = useState(false);
+	const [allDay, setAllDay] = useState(initialAllDay);
+	const [showStartTimePicker, setShowStartTimePicker] = useState(false);
+	const [showEndTimePicker, setShowEndTimePicker] = useState(false);
 
 	React.useEffect(() => {
-		setTitle(initialTitle);
-		setSelectedTime(initialTime);
-		setNotes(initialNotes);
-	}, [visible, initialTitle, initialTime, initialNotes]);
+		if (visible) {
+			setTitle(initialTitle);
+			setStartTime(initialStartTime);
+			setEndTime(initialEndTime);
+			setNotes(initialNotes);
+			setAllDay(initialAllDay);
+		}
+	}, [
+		visible,
+		initialTitle,
+		initialStartTime,
+		initialEndTime,
+		initialNotes,
+		initialAllDay,
+	]);
+
+	const handleStartTimePress = () => {
+		setShowEndTimePicker(false);
+		setShowStartTimePicker((v) => !v);
+	};
+
+	const handleEndTimePress = () => {
+		setShowStartTimePicker(false);
+		setShowEndTimePicker((v) => !v);
+	};
+
+	const handleAllDayToggle = () => {
+		setAllDay(!allDay);
+		if (!allDay) {
+			// If turning on allDay, clear times
+			setStartTime("");
+			setEndTime("");
+		} else {
+			// If turning off allDay, set default times
+			setStartTime("08:00");
+			setEndTime("09:00");
+		}
+		setShowStartTimePicker(false);
+		setShowEndTimePicker(false);
+	};
 
 	return (
 		<Modal visible={visible} transparent animationType="slide">
@@ -75,7 +122,7 @@ export default function NewTaskModal({
 						</TouchableOpacity>
 						<Text style={styles.headerTitle}>New Task</Text>
 						<TouchableOpacity
-							onPress={() => onSave(title, selectedTime, notes)}
+							onPress={() => onSave(title, startTime, endTime, notes, allDay)}
 							style={styles.headerButton}
 						>
 							<Text style={styles.saveText}>Save</Text>
@@ -88,49 +135,65 @@ export default function NewTaskModal({
 					>
 						<ScrollView contentContainerStyle={styles.content}>
 							{/* Section 1: Description */}
-							<Text style={styles.sectionLabel}>{titleLabel}</Text>
+							<Text style={styles.sectionLabel}>Task Description</Text>
 							<TextInput
 								style={styles.input}
-								placeholder={titleLabel}
+								placeholder="Description"
+								placeholderTextColor="#999"
 								value={title}
 								onChangeText={setTitle}
 							/>
 
-							{/* Section 2: Time Picker */}
-							<Text style={styles.sectionLabel}>Time</Text>
-							<TouchableOpacity
-								style={styles.timeRow}
-								onPress={() => setShowTimeDropdown((v) => !v)}
-							>
-								<Text style={styles.timeRowText}>
-									{formatTime(selectedTime)}
-								</Text>
-								<Text style={styles.timeRowIcon}>▼</Text>
-							</TouchableOpacity>
-							{showTimeDropdown && (
-								<View style={styles.dropdown}>
-									<FlatList
-										data={generateTimeOptions()}
-										keyExtractor={(item) => item}
-										renderItem={({ item }) => (
-											<TouchableOpacity
-												style={[
-													styles.dropdownItem,
-													selectedTime === item && styles.selectedDropdownItem,
-												]}
-												onPress={() => {
-													setSelectedTime(item);
-													setShowTimeDropdown(false);
-												}}
-											>
-												<Text style={styles.dropdownItemText}>
-													{formatTime(item)}
-												</Text>
-											</TouchableOpacity>
-										)}
-										style={styles.dropdownList}
-									/>
-								</View>
+							{/* Section 2: Time Pickers */}
+							{/* If all day */}
+							<View style={styles.allDayContainer}>
+								<Text style={styles.sectionLabel}>All Day</Text>
+								<TouchableOpacity
+									style={[styles.checkbox, allDay && styles.checkboxChecked]}
+									onPress={handleAllDayToggle}
+								>
+									{allDay && <Text style={styles.checkmark}>✓</Text>}
+								</TouchableOpacity>
+							</View>
+							{!allDay && (
+								<>
+									{/* Start Time */}
+									<Text style={styles.sectionLabel}>Start Time</Text>
+									<TouchableOpacity
+										style={styles.timeRow}
+										onPress={handleStartTimePress}
+									>
+										<Text style={styles.timeRowText}>
+											{formatTime(startTime)}
+										</Text>
+										<Text style={styles.timeRowIcon}>
+											{showStartTimePicker ? "▲" : "▼"}
+										</Text>
+									</TouchableOpacity>
+									{showStartTimePicker && (
+										<TimePickerWheel
+											time={startTime}
+											onTimeChange={setStartTime}
+										/>
+									)}
+
+									{/* End Time */}
+									<Text style={styles.sectionLabel}>End Time</Text>
+									<TouchableOpacity
+										style={styles.timeRow}
+										onPress={handleEndTimePress}
+									>
+										<Text style={styles.timeRowText}>
+											{formatTime(endTime)}
+										</Text>
+										<Text style={styles.timeRowIcon}>
+											{showEndTimePicker ? "▲" : "▼"}
+										</Text>
+									</TouchableOpacity>
+									{showEndTimePicker && (
+										<TimePickerWheel time={endTime} onTimeChange={setEndTime} />
+									)}
+								</>
 							)}
 
 							{/* Section 3: Notes */}
@@ -138,6 +201,7 @@ export default function NewTaskModal({
 							<TextInput
 								style={styles.notesInput}
 								placeholder="Add notes..."
+								placeholderTextColor="#999"
 								value={notes}
 								onChangeText={setNotes}
 								multiline
@@ -228,30 +292,6 @@ const styles = StyleSheet.create({
 		fontSize: 16,
 		marginLeft: 8,
 	},
-	dropdown: {
-		position: "absolute",
-		left: 0,
-		right: 0,
-		top: 110,
-		backgroundColor: "white",
-		borderRadius: 6,
-		borderWidth: 1,
-		borderColor: "#ccc",
-		zIndex: 10,
-		maxHeight: 200,
-	},
-	dropdownList: {
-		maxHeight: 200,
-	},
-	dropdownItem: {
-		padding: 12,
-	},
-	selectedDropdownItem: {
-		backgroundColor: "#e0e0e0",
-	},
-	dropdownItemText: {
-		fontSize: 16,
-	},
 	notesInput: {
 		borderColor: "#ccc",
 		borderWidth: 1,
@@ -260,5 +300,27 @@ const styles = StyleSheet.create({
 		fontSize: 16,
 		minHeight: 60,
 		textAlignVertical: "top",
+	},
+	allDayContainer: {
+		flexDirection: "row",
+		alignItems: "center",
+		marginTop: 8,
+		marginBottom: 8,
+	},
+	checkbox: {
+		borderColor: "#ccc",
+		borderWidth: 1,
+		borderRadius: 6,
+		padding: 12,
+		marginLeft: 8,
+	},
+	checkboxChecked: {
+		backgroundColor: "#007AFF",
+		padding: 4,
+	},
+	checkmark: {
+		fontSize: 16,
+		fontWeight: "bold",
+		color: "white",
 	},
 });

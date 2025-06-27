@@ -1,7 +1,9 @@
 export interface Task {
 	id: string;
 	title: string;
-	time: string;
+	allDay?: boolean;
+	startTime?: string;
+	endTime?: string;
 	notes?: string;
 }
 

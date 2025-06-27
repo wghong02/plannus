@@ -20,9 +20,18 @@ export async function deleteTask(
 	index: number
 ): Promise<TaskMap> {
 	console.log("deleting task from storage", tasks, date, index);
+
 	if (!tasks[date]) return tasks;
 	const updatedItems = [...tasks[date]];
 	updatedItems.splice(index, 1);
+
+	// If no tasks left, delete the date
+	if (updatedItems.length === 0) {
+		const { [date]: deleted, ...remainingTasks } = tasks;
+		await saveTasks(remainingTasks);
+		return remainingTasks;
+	}
+
 	const updatedTasks = { ...tasks, [date]: updatedItems };
 	await saveTasks(updatedTasks);
 	return updatedTasks;
