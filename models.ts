@@ -1,4 +1,4 @@
-export interface Task {
+export interface Event {
 	id: string;
 	title: string;
 	allDay?: boolean;
@@ -7,4 +7,4 @@ export interface Task {
 	notes?: string;
 }
 
-export type TaskMap = Record<string, Task[]>;
+export type EventMap = Record<string, Event[]>;

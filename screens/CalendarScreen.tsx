@@ -14,17 +14,17 @@ import {
 } from "react-native";
 import { Calendar } from "react-native-calendars";
 import { StyleSheet } from "react-native";
-import NewTaskModal from "../components/NewTaskModal";
-import { loadTasks, saveTasks, deleteTask } from "../utils/taskStorage";
-import type { Task, TaskMap } from "../models";
+import NewEventModal from "../components/NewEventModal";
+import { loadEvents, saveEvents, deleteEvent } from "../utils/apis";
+import type { Event, EventMap } from "../models";
 
-const STORAGE_KEY = "task";
+const STORAGE_KEY = "event";
 
 export default function CalendarScreen() {
 	const [selectedDate, setSelectedDate] = useState("");
-	const [task, setTask] = useState<TaskMap>({});
+	const [event, setEvent] = useState<EventMap>({});
 	const [editIndex, setEditIndex] = useState<number | null>(null);
-	const [showTaskModal, setShowTaskModal] = useState(false);
+	const [showEventModal, setShowEventModal] = useState(false);
 	const [modalInitialTitle, setModalInitialTitle] = useState("");
 	const [modalInitialStartTime, setModalInitialStartTime] = useState("");
 	const [modalInitialEndTime, setModalInitialEndTime] = useState("");
@@ -34,39 +34,39 @@ export default function CalendarScreen() {
 	// Load from AsyncStorage
 	useEffect(() => {
 		(async () => {
-			const loaded = await loadTasks();
-			setTask(loaded);
+			const loaded = await loadEvents();
+			setEvent(loaded);
 		})();
 	}, []);
 
 	// Reset modal state when modal closes
 	useEffect(() => {
-		if (!showTaskModal) {
-			setModalInitialTitle("New Task");
+		if (!showEventModal) {
+			setModalInitialTitle("New Event");
 			setModalInitialStartTime("08:00");
 			setModalInitialEndTime("09:00");
 			setModalInitialNotes("");
 			setModalInitialAllDay(false);
 		}
-	}, [showTaskModal]);
+	}, [showEventModal]);
 
-	const handleAddTask = () => {
+	const handleAddEvent = () => {
 		setEditIndex(null);
-		setShowTaskModal(true);
+		setShowEventModal(true);
 	};
 
 	const handleEdit = (index: number) => {
-		const item = task[selectedDate][index];
+		const item = event[selectedDate][index];
 		setEditIndex(index);
 		setModalInitialTitle(item.title);
 		setModalInitialStartTime(item.startTime || "");
 		setModalInitialEndTime(item.endTime || "");
 		setModalInitialNotes(item.notes || "");
 		setModalInitialAllDay(item.allDay || false);
-		setShowTaskModal(true);
+		setShowEventModal(true);
 	};
 
-	const handleSaveTask = async (
+	const handleSaveEvent = async (
 		title: string,
 		startTime: string,
 		endTime: string,
@@ -74,11 +74,11 @@ export default function CalendarScreen() {
 		allDay: boolean
 	) => {
 		if (!title) {
-			setShowTaskModal(false);
+			setShowEventModal(false);
 			return;
 		}
-		const items = task[selectedDate] || [];
-		let updatedItems: Task[];
+		const items = event[selectedDate] || [];
+		let updatedItems: Event[];
 		if (editIndex !== null) {
 			updatedItems = [...items];
 			updatedItems[editIndex] = {
@@ -90,7 +90,7 @@ export default function CalendarScreen() {
 				notes,
 			};
 		} else {
-			const newTask: Task = {
+			const newEvent: Event = {
 				id: Date.now().toString(),
 				title,
 				allDay,
@@ -98,7 +98,7 @@ export default function CalendarScreen() {
 				endTime,
 				notes,
 			};
-			updatedItems = [...items, newTask];
+			updatedItems = [...items, newEvent];
 		}
 		// Sort by start time if available, otherwise by title
 		updatedItems.sort((a, b) => {
@@ -107,28 +107,28 @@ export default function CalendarScreen() {
 			}
 			return a.title.localeCompare(b.title);
 		});
-		const updatedTask = { ...task, [selectedDate]: updatedItems };
+		const updatedEvent = { ...event, [selectedDate]: updatedItems };
 
 		try {
-			await saveTasks(updatedTask);
-			setTask(updatedTask);
-			setShowTaskModal(false);
+			await saveEvents(updatedEvent);
+			setEvent(updatedEvent);
+			setShowEventModal(false);
 			setEditIndex(null);
 		} catch (error) {
-			console.error("Failed to save task:", error);
+			console.error("Failed to save event:", error);
 			// You might want to show an alert here to inform the user
 		}
 	};
 
 	const handleDelete = (index: number) => {
-		Alert.alert("Delete Task", "Are you sure?", [
+		Alert.alert("Delete Event", "Are you sure?", [
 			{ text: "Cancel", style: "cancel" },
 			{
 				text: "Delete",
 				style: "destructive",
 				onPress: async () => {
-					const updated = await deleteTask(task, selectedDate, index);
-					setTask(updated);
+					const updated = await deleteEvent(event, selectedDate, index);
+					setEvent(updated);
 					setEditIndex(null);
 				},
 			},
@@ -143,7 +143,7 @@ export default function CalendarScreen() {
 		return `${displayHour}:${minutes} ${ampm}`;
 	};
 
-	const taskItems = task[selectedDate] || [];
+	const eventItems = event[selectedDate] || [];
 
 	return (
 		<>
@@ -161,31 +161,31 @@ export default function CalendarScreen() {
 					/>
 
 					{selectedDate ? (
-						<View style={styles.taskContainer}>
-							<Text style={styles.taskTitle}>Tasks for {selectedDate}</Text>
+						<View style={styles.eventContainer}>
+							<Text style={styles.eventTitle}>Events for {selectedDate}</Text>
 
 							<FlatList
-								data={taskItems}
+								data={eventItems}
 								keyExtractor={(item) => item.id}
 								ListEmptyComponent={
-									<Text style={styles.noItems}>No tasks yet</Text>
+									<Text style={styles.noItems}>No events yet</Text>
 								}
 								renderItem={({ item, index }) => (
-									<View style={styles.taskItem}>
+									<View style={styles.eventItem}>
 										<TouchableOpacity
 											style={styles.itemTextContainer}
 											onPress={() => handleEdit(index)}
 										>
-											<Text style={styles.taskItemTitle}>{item.title}</Text>
+											<Text style={styles.eventItemTitle}>{item.title}</Text>
 										</TouchableOpacity>
-										<View style={styles.taskTimeContainer}>
+										<View style={styles.eventTimeContainer}>
 											{item.startTime && (
-												<Text style={styles.taskTime}>
+												<Text style={styles.eventTime}>
 													{formatTime(item.startTime)}
 												</Text>
 											)}
 											{item.endTime && (
-												<Text style={styles.taskEndTime}>
+												<Text style={styles.eventEndTime}>
 													{formatTime(item.endTime)}
 												</Text>
 											)}
@@ -200,21 +200,23 @@ export default function CalendarScreen() {
 
 							<TouchableOpacity
 								style={styles.addButton}
-								onPress={handleAddTask}
+								onPress={handleAddEvent}
 							>
-								<Text style={styles.addButtonText}>+ Add Task</Text>
+								<Text style={styles.addButtonText}>+ Add Event</Text>
 							</TouchableOpacity>
 						</View>
 					) : (
-						<Text style={styles.selectPrompt}>Select a date to view tasks</Text>
+						<Text style={styles.selectPrompt}>
+							Select a date to view events
+						</Text>
 					)}
 				</KeyboardAvoidingView>
 			</TouchableWithoutFeedback>
 
-			<NewTaskModal
-				visible={showTaskModal}
-				onCancel={() => setShowTaskModal(false)}
-				onSave={handleSaveTask}
+			<NewEventModal
+				visible={showEventModal}
+				onCancel={() => setShowEventModal(false)}
+				onSave={handleSaveEvent}
 				initialTitle={modalInitialTitle}
 				initialStartTime={modalInitialStartTime}
 				initialEndTime={modalInitialEndTime}
@@ -227,9 +229,9 @@ export default function CalendarScreen() {
 
 const styles = StyleSheet.create({
 	container: { flex: 1, backgroundColor: "white" },
-	taskContainer: { flex: 1, padding: 16 },
-	taskTitle: { fontSize: 16, fontWeight: "bold", marginBottom: 8 },
-	taskItem: {
+	eventContainer: { flex: 1, padding: 16 },
+	eventTitle: { fontSize: 16, fontWeight: "bold", marginBottom: 8 },
+	eventItem: {
 		flexDirection: "row",
 		alignItems: "center",
 		justifyContent: "space-between",
@@ -259,17 +261,17 @@ const styles = StyleSheet.create({
 		color: "#888",
 		fontSize: 16,
 	},
-	taskTimeContainer: {
+	eventTimeContainer: {
 		width: 80,
 		padding: 8,
 		backgroundColor: "#f3f4f6",
 		borderRadius: 6,
 	},
-	taskTime: {
+	eventTime: {
 		fontSize: 14,
 		fontWeight: "bold",
 	},
-	taskItemTitle: {
+	eventItemTitle: {
 		fontSize: 14,
 		fontWeight: "bold",
 	},
@@ -285,7 +287,7 @@ const styles = StyleSheet.create({
 		fontSize: 16,
 		fontWeight: "bold",
 	},
-	taskEndTime: {
+	eventEndTime: {
 		fontSize: 12,
 		color: "#888",
 	},

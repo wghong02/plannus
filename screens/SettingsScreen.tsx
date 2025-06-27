@@ -20,9 +20,9 @@ export default function SettingsScreen() {
 
 const styles = StyleSheet.create({
 	container: { flex: 1, backgroundColor: "white" },
-	taskContainer: { flex: 1, padding: 16 },
-	taskTitle: { fontSize: 16, fontWeight: "bold", marginBottom: 8 },
-	taskItem: {
+	eventContainer: { flex: 1, padding: 16 },
+	eventTitle: { fontSize: 16, fontWeight: "bold", marginBottom: 8 },
+	eventItem: {
 		flexDirection: "row",
 		alignItems: "center",
 		justifyContent: "space-between",

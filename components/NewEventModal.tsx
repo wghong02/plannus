@@ -15,7 +15,7 @@ import {
 import { formatTime } from "../utils/functions";
 import TimePickerWheel from "./TimePickerWheel";
 
-interface NewTaskModalProps {
+interface NewEventModalProps {
 	visible: boolean;
 	onCancel: () => void;
 	onSave: (
@@ -52,16 +52,16 @@ const generateMinutes = () => {
 
 const generateAMPM = () => ["AM", "PM"];
 
-export default function NewTaskModal({
+export default function NewEventModal({
 	visible,
 	onCancel,
 	onSave,
-	initialTitle = "New Task",
+	initialTitle = "New Event",
 	initialStartTime = "08:00",
 	initialEndTime = "09:00",
 	initialNotes = "",
 	initialAllDay = false,
-}: NewTaskModalProps) {
+}: NewEventModalProps) {
 	const [title, setTitle] = useState(initialTitle);
 	const [startTime, setStartTime] = useState(initialStartTime);
 	const [endTime, setEndTime] = useState(initialEndTime);
@@ -120,7 +120,7 @@ export default function NewTaskModal({
 						<TouchableOpacity onPress={onCancel} style={styles.headerButton}>
 							<Text style={styles.cancelText}>Cancel</Text>
 						</TouchableOpacity>
-						<Text style={styles.headerTitle}>New Task</Text>
+						<Text style={styles.headerTitle}>New Event</Text>
 						<TouchableOpacity
 							onPress={() => onSave(title, startTime, endTime, notes, allDay)}
 							style={styles.headerButton}
@@ -135,7 +135,7 @@ export default function NewTaskModal({
 					>
 						<ScrollView contentContainerStyle={styles.content}>
 							{/* Section 1: Description */}
-							<Text style={styles.sectionLabel}>Task Description</Text>
+							<Text style={styles.sectionLabel}>Event Description</Text>
 							<TextInput
 								style={styles.input}
 								placeholder="Description"
