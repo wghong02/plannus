@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
 	Modal,
 	View,
@@ -12,6 +12,7 @@ import {
 	KeyboardAvoidingView,
 	Platform,
 	Alert,
+	Keyboard,
 } from "react-native";
 import { formatTime } from "../utils/functions";
 import TimePickerWheel from "./TimePickerWheel";
@@ -163,6 +164,43 @@ export default function NewTaskModal({
 
 	// Scroll control
 	const [isSliderActive, setIsSliderActive] = useState(false);
+
+	// Keyboard handling
+	const [keyboardPadding, setKeyboardPadding] = useState(0);
+	const [currentScrollY, setCurrentScrollY] = useState(0);
+	const scrollViewRef = useRef<ScrollView>(null);
+
+	useEffect(() => {
+		const keyboardDidShowListener = Keyboard.addListener(
+			"keyboardDidShow",
+			() => {
+				setKeyboardPadding(40);
+				// Scroll down 80px from current position when keyboard appears
+				setTimeout(() => {
+					scrollViewRef.current?.scrollTo({
+						y: currentScrollY + 80,
+						animated: true,
+					});
+				}, 100);
+			}
+		);
+		const keyboardDidHideListener = Keyboard.addListener(
+			"keyboardDidHide",
+			() => {
+				setKeyboardPadding(0);
+				// Scroll back to original position when keyboard disappears
+				scrollViewRef.current?.scrollTo({
+					y: currentScrollY,
+					animated: true,
+				});
+			}
+		);
+
+		return () => {
+			keyboardDidShowListener?.remove();
+			keyboardDidHideListener?.remove();
+		};
+	}, [currentScrollY]);
 
 	React.useEffect(() => {
 		if (visible) {
@@ -352,8 +390,16 @@ export default function NewTaskModal({
 						style={{ flex: 1 }}
 					>
 						<ScrollView
-							contentContainerStyle={styles.content}
+							contentContainerStyle={[
+								styles.content,
+								{ paddingBottom: 80 + keyboardPadding },
+							]}
 							scrollEnabled={!isSliderActive}
+							ref={scrollViewRef}
+							onScroll={(event) => {
+								setCurrentScrollY(event.nativeEvent.contentOffset.y);
+							}}
+							scrollEventThrottle={16}
 						>
 							{/* Section 1: Task Description */}
 							<Text style={styles.sectionLabel}>Task Description</Text>
