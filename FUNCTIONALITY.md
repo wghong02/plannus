@@ -16,8 +16,8 @@ Each behavior has a **stable ID** and a **tag**:
   the doc and the suite stay traceable. IDs are append-only: never renumber; retire
   an ID by marking it *removed* rather than reusing it.
 
-Behaviors describe current, shipped code. Agreed-but-unbuilt changes live in the
-**Planned work (TODO)** section, not inline.
+Behaviors describe current, shipped code. Target/eventual behavior and planned reworks
+live in [DESIGN.md](DESIGN.md), not inline.
 - **Tag**:
   - **(unit)** — pure logic, no I/O; testable directly.
   - **(integration)** — touches the SwiftData store or `UserDefaults`; test against
@@ -99,16 +99,13 @@ subtasks. An `inMemory` initializer backs tests. Everything persists natively
 
 ### 3.1 Tasks
 
-> Task saves currently rewrite the whole set ([DB-01]); a per-entity upsert model is
-> planned — see **Planned work (TODO) → T1**.
-
 - **[DB-01] (integration)** `saveTasks(set)` replaces the **whole** task + subtask
   set. *Given* a store holding tasks `[a, b]`, *when* `saveTasks([c])`, *then*
   `loadTasks()` returns exactly `[c]` (a, b and their subtasks are gone).
 - **[DB-02] (integration)** `saveTasks` preserves each incoming task/subtask `id`;
   it mints a UUID only when the incoming `id` is `nil`.
 - **[DB-03] (integration)** Blank/whitespace titles default on save: task →
-  `"New Task"`, subtask → `"New Subtask"`. *(Planned: validate instead — TODO T3.)*
+  `"New Task"`, subtask → `"New Subtask"`.
 - **[DB-04] (integration)** Each subtask's stored `orderIndex` is set from its array
   position; `loadTasks` returns subtasks sorted ascending by that order.
   *Example:* saving subtasks `[s0, s1, s2]` loads them back in that order with
@@ -116,15 +113,13 @@ subtasks. An `inMemory` initializer backs tests. Everything persists natively
 - **[DB-05] (integration)** `loadTasks` returns tasks sorted by `createDate`
   **descending**.
 - **[DB-06] (integration)** `types` round-trips: a non-empty array is preserved;
-  both `nil` and `[]` load back as `nil`. *(Planned: make `types` non-optional
-  `[String]` default `[]` — TODO T5.)*
+  both `nil` and `[]` load back as `nil`.
 - **[DB-07] (integration)** `hasDeadlineTime` round-trips (`true` stays `true`;
   absent/`false` loads as `false`).
 - **[DB-08] (integration)** Deleting or replacing tasks that **have subtasks** must
   not trip the cascade/inverse constraint. Tasks are deleted object-by-object so the
   cascade clears their subtasks (never a batch delete of children). Covers: re-saving
-  over a subtasked task, and `reset()` with subtasks present. *(T1 reframes this as an
-  invariant on upsert/`deleteTask` and drops the re-save case — see TODO T1.)*
+  over a subtasked task, and `reset()` with subtasks present.
 
 ### 3.2 Events
 
@@ -417,69 +412,6 @@ time-string formatter.
   Tests cite the behavior IDs above via `// spec: <ID>` comments; behaviors tagged
   **(ui)** are covered by XCUITest or become **(unit)** once their logic is extracted
   from the view.
-
----
-
-## Planned work (TODO)
-
-Agreed changes not yet built. Each becomes real behavior IDs + tests when implemented.
-
-- [ ] **T1 — Task persistence → per-entity upsert** (replaces [DB-01]). Move from
-  whole-set `saveTasks` to `upsertTask(task)` + `deleteTask(id:)`, matching how events
-  already persist. *Why:* immediate auto-save makes the current O(all-tasks) rewrite
-  costly, it fights SwiftData's identity tracking (root cause of the [DB-08] cascade
-  crash), and it emits large deltas for any future sync/undo.
-  - `upsertTask` writes one task and reconciles its subtasks by id (insert new /
-    delete missing / update survivors; refresh `order`).
-  - `deleteTask(id)` deletes one task; cascade removes its subtasks.
-  - Make `StoredTask.taskID` / `StoredSubTask.subTaskID` `@Attribute(.unique)`.
-  - Rewire `TaskService` to single-task writes; drop the whole-set reload.
-  - **Spec ripple:** retire [DB-01] (*removed*); the upsert / single-`deleteTask` /
-    subtask-reconciliation behaviors get new DB IDs + tests. Reword **[DB-08]**: drop
-    its "re-saving over a subtasked task" case (a full-replace artifact) and reframe it
-    as an invariant the new code must honor — subtask removal (in reconciliation and
-    `deleteTask`) deletes children object-by-object / via cascade, **never** a batch
-    `delete(model:)`. `reset()` keeps its object-by-object clear.
-- [ ] **T2 — Extract view logic for testing.** Pull the pure logic out of the
-  `(ui — pending extraction)` behaviors (task sort/split, editor `save()`, cutoff
-  validation, end-after-start) into helpers so they become `(unit)`-testable.
-- [ ] **T3 — Require a title instead of silently defaulting** ([DB-03]/[TS-02]).
-  Replace blank-title coercion with validation:
-  - Show `"New Task"` / `"New Subtask"` as the editor **placeholder** (not a stored
-    value).
-  - **Block save** when the title is empty/whitespace — disable the ✓ (matching the
-    existing "Add Subtask" / "Add type" buttons), so nothing untitled is created.
-  - Relax the `"New Task"` / `"New Subtask"` coercion to a defensive DB fallback, or
-    drop it once save is guarded.
-  - Unifies today's three empty-title behaviors: task coerces, subtask-add is already
-    blocked, and the event editor just dismisses ([EE-02]).
-  - **Spec ripple (update when built):**
-    - **[DB-03]**, **[TS-02]** — flip from "coerces" to defensive-fallback-only (or
-      *removed*).
-    - **[TE-01]** — drop "title → New Task when blank"; note the `"New Task"`
-      placeholder instead.
-    - **New editor invariant** (needs an ID, e.g. `[TE-06]`): the ✓ save action is
-      disabled while the title is empty/whitespace.
-    - **[TE-05]** — subtask title field placeholder becomes `"New Subtask"` (minor).
-    - **If events are unified too:** **[EE-01]** ("New Event" default → placeholder)
-      and **[EE-02]** (empty dismisses → empty blocks save).
-    - **Tests + Appendix A:** invert `testBlankTitlesDefaultOnSave` and
-      `testBlankTitleDefaults` (coerce → reject/validate); refresh the coverage matrix.
-- [ ] **T4 — Non-optional ids + one id scheme.** Make `Task.id` / `SubTask.id`
-  non-optional `String` with a `= UUID().uuidString` default (like `Event.id`),
-  closing the transient-nil window and removing the scattered `guard let id = task.id`
-  unwraps in the views. Fold in id-scheme unification: move `Event.makeID`'s
-  `"event-{millis}-{rand}"` ([DM-04]) to a UUID too (collision-free), keeping
-  `Event.id` non-optional. Existing event ids stay valid (upsert is by `eventID`).
-  Touches [DM-04], [DB-02], [TS-01]; pairs naturally with **T1** (both touch id
-  handling).
-- [ ] **T5 — `types` non-optional** (same spirit as T4: prefer empty collections over
-  optional ones). Make `Task.types` a required `[String]` defaulting to `[]`; drop the
-  nil/empty coercion everywhere (`?? []` on save, `isEmpty ? nil` on load, the editor's
-  round-trip, and `if let types …` display checks).
-  - **Spec ripple:** [DM-03] default `types []` (not `nil`); §2.1 field type; **[DB-06]**
-    becomes a plain identity round-trip (`[]` stays `[]`); **[TE-04]** drop "empty
-    `types` → nil"; invert `testEmptyTypesRoundTripToNil` (empty stays empty).
 
 ---
 

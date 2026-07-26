@@ -24,7 +24,8 @@ charts.
   A developer-only Database Management panel is available in Debug builds.
 
 See [`FUNCTIONALITY.md`](FUNCTIONALITY.md) for a complete, section-by-section
-specification of every behavior.
+specification of every **current** behavior, and [`DESIGN.md`](DESIGN.md) for the
+**target/eventual** behavior and the planned reworks.
 
 ## Requirements
 
