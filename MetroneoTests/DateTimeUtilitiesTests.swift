@@ -2,18 +2,8 @@ import XCTest
 @testable import Metroneo
 
 final class DateTimeUtilitiesTests: XCTestCase {
-    func testIncompleteTasksForDate() {
-        let tasks = [
-            Task(title: "Due today", deadline: DateTimeUtilities.endOfDay(day("2026-07-21")),
-                 completedAt: nil, createDate: day("2026-07-01")),
-            Task(title: "Done", deadline: DateTimeUtilities.endOfDay(day("2026-07-21")),
-                 completedAt: day("2026-07-20"), createDate: day("2026-07-01")),
-            Task(title: "Other day", deadline: DateTimeUtilities.endOfDay(day("2026-07-22")),
-                 completedAt: nil, createDate: day("2026-07-01"))
-        ]
-        let result = DateTimeUtilities.incompleteTasks(tasks, forDate: day("2026-07-21"))
-        XCTAssertEqual(result.map(\.title), ["Due today"])
-    }
+    // [DTU-07] `incompleteTasks(_:forDate:)` was retired in v2 — calendar placement
+    // is now `CalendarGrouping` (see CalendarGroupingTests).
 
     func testDeadlineComposition() {
         let cal = Calendar.current

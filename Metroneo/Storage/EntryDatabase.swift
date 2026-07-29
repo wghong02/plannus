@@ -1,6 +1,12 @@
 import Foundation
 import SwiftData
 
+/// Errors thrown by the persistence layer.
+public enum MetroneoError: Error, Equatable {
+    case validation(String)
+    case database(String)
+}
+
 /// Row counts + connection state for the v2 entry store.
 public struct EntryStoreStats: Equatable, Sendable {
     public var entryCount: Int

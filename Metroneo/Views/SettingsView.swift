@@ -1,10 +1,16 @@
 import SwiftUI
 
-/// Settings tab: Personal Preferences navigation + database management
-/// (FUNCTIONALITY.md §9).
-struct SettingsView: View {
-    let database: SwiftDataDatabase
+/// Key for the first-run onboarding "seen" flag (D13.2).
+let onboardingSeenKey = "@onboarding_seen"
 
+/// Settings tab (DESIGN.md §9, v2). Personal Preferences → the combined
+/// **Performance customization** screen (cutoffs + labels + colors + trend,
+/// D8/D10/D12); About/version; a tutorial replay (D13.3); and, in Debug builds,
+/// entry-store management.
+struct SettingsView: View {
+    let database: EntryDatabase
+
+    @AppStorage(onboardingSeenKey) private var onboardingSeen = false
     @State private var alert: SettingsAlert?
 
     private struct SettingsAlert: Identifiable {
@@ -13,8 +19,6 @@ struct SettingsView: View {
         let message: String
     }
 
-    /// "<marketing version> (<build>)", e.g. "1.0 (1)" — read from the synthesized
-    /// Info.plist (`CFBundleShortVersionString` / `CFBundleVersion`).
     private static var appVersion: String {
         let info = Bundle.main.infoDictionary
         let version = info?["CFBundleShortVersionString"] as? String ?? "—"
@@ -26,38 +30,29 @@ struct SettingsView: View {
         NavigationStack {
             List {
                 Section("Personal Preferences") {
-                    NavigationLink("Performance & Preferences") {
-                        PersonalPreferencesView()
-                    }
+                    NavigationLink("Performance") { PerformanceCustomizationScreen() }
+                }
+
+                Section("Help") {
+                    Button("Show Tutorial Again") { onboardingSeen = false }
                 }
 
                 #if DEBUG
-                // Database management is a developer-only aid; excluded from
-                // release builds (FUNCTIONALITY.md §9).
                 Section("Database Management") {
-                    Button("Database Test") {
-                        let ok = !database.stats().isClosed
-                        alert = SettingsAlert(title: "Database Test",
-                                              message: ok ? "Database connection test passed!" : "Database connection test failed!")
-                    }
                     Button("Database Stats") {
                         let s = database.stats()
                         alert = SettingsAlert(title: "Database Stats",
-                                              message: "Tasks: \(s.taskCount)\nSubtasks: \(s.subTaskCount)\nEvents: \(s.eventCount)\nSchema: v\(s.schemaVersion)")
+                                              message: "Entries: \(s.entryCount)\nCollections: \(s.collectionCount)\nSeries: \(s.seriesCount)\nSchema: v\(s.schemaVersion)")
                     }
                     Button("Erase All Data", role: .destructive) {
                         try? database.reset()
-                        alert = SettingsAlert(title: "Success", message: "All data has been cleared successfully.")
+                        alert = SettingsAlert(title: "Success", message: "All data has been cleared.")
                     }
                 }
                 #endif
 
                 Section("About") {
-                    HStack {
-                        Text("Version")
-                        Spacer()
-                        Text(Self.appVersion).foregroundStyle(.secondary)
-                    }
+                    HStack { Text("Version"); Spacer(); Text(Self.appVersion).foregroundStyle(.secondary) }
                 }
             }
             .navigationTitle("Settings")
@@ -68,102 +63,123 @@ struct SettingsView: View {
     }
 }
 
-/// Personal Preferences → link to Performance Cutoffs (FUNCTIONALITY.md §9).
-struct PersonalPreferencesView: View {
-    var body: some View {
-        List {
-            Section("Performance Settings") {
-                NavigationLink {
-                    PerformanceCutoffsView()
-                } label: {
-                    VStack(alignment: .leading) {
-                        Text("Performance Cutoffs")
-                        Text("Customize rating thresholds").font(.caption).foregroundStyle(.secondary)
-                    }
-                }
-            }
-        }
-        .navigationTitle("Personal Preferences")
-    }
-}
-
-/// Edit the performance-rating cutoffs (FUNCTIONALITY.md §9).
-struct PerformanceCutoffsView: View {
+/// The single "Performance customization" screen (D8/D10/D12 consolidated).
+struct PerformanceCustomizationScreen: View {
     @EnvironmentObject private var preferences: PerformancePreferencesService
+    @EnvironmentObject private var custom: PerformanceCustomizationService
 
     @State private var fair = 0
     @State private var good = 0
     @State private var veryGood = 0
     @State private var excellent = 0
-    @State private var cutoffAlert: CutoffAlert?
-
-    private struct CutoffAlert: Identifiable {
-        let id = UUID()
-        let title: String
-        let message: String
-    }
+    @State private var cutoffAlert: String?
 
     var body: some View {
         Form {
-            Section {
-                Text("Customize the rating thresholds for performance evaluation. Anything below the \"Fair\" threshold is considered \"Poor\".")
-                    .font(.caption).foregroundStyle(.secondary)
-            }
-            Section {
+            Section("Cutoffs") {
                 cutoffRow("Fair", value: $fair)
                 cutoffRow("Good", value: $good)
                 cutoffRow("Very Good", value: $veryGood)
                 cutoffRow("Excellent", value: $excellent)
+                Button("Save Cutoffs") { saveCutoffs() }
             }
+
+            Section("Labels & Colors") {
+                ForEach(PerformanceLevel.allCases, id: \.self) { level in
+                    VStack(alignment: .leading, spacing: 6) {
+                        TextField(level.defaultLabel, text: labelBinding(level))
+                        HStack {
+                            Text("Color").font(.caption).foregroundStyle(.secondary)
+                            TextField("#RRGGBBAA", text: colorBinding(level))
+                                .font(.caption.monospaced())
+                            RoundedRectangle(cornerRadius: 4)
+                                .fill(custom.color(for: level))
+                                .frame(width: 28, height: 20)
+                        }
+                    }
+                }
+            }
+
+            Section("Overall Trend") {
+                Stepper("Improving ≥ \(Int(custom.trendImprovingPercent))%", value: trendBinding(improving: true), in: 0...100)
+                Stepper("Declining ≤ \(Int(custom.trendDecliningPercent))%", value: trendBinding(improving: false), in: -100...0)
+                TextField("Improving", text: trendLabelBinding(\.improving, default: "Improving"))
+                TextField("Neutral", text: trendLabelBinding(\.neutral, default: "Neutral"))
+                TextField("Declining", text: trendLabelBinding(\.declining, default: "Declining"))
+            }
+
             Section {
-                Button("Save Changes") { save() }
                 Button("Reset to Defaults", role: .destructive) {
                     preferences.resetToDefaults()
+                    custom.resetToDefaults()
                     seed()
                 }
             }
         }
-        .navigationTitle("Performance Cutoffs")
+        .navigationTitle("Performance")
         .onAppear(perform: seed)
-        .alert(item: $cutoffAlert) { a in
-            Alert(title: Text(a.title), message: Text(a.message), dismissButton: .default(Text("OK")))
-        }
+        .alert("Invalid Cutoffs", isPresented: Binding(get: { cutoffAlert != nil }, set: { if !$0 { cutoffAlert = nil } })) {
+            Button("OK", role: .cancel) {}
+        } message: { Text(cutoffAlert ?? "") }
     }
 
     private func cutoffRow(_ label: String, value: Binding<Int>) -> some View {
         HStack {
-            Text(label)
-            Spacer()
+            Text(label); Spacer()
             TextField("", value: value, format: .number)
-                .keyboardType(.numberPad)
-                .multilineTextAlignment(.trailing)
-                .frame(width: 80)
+                .keyboardType(.numberPad).multilineTextAlignment(.trailing).frame(width: 80)
         }
     }
 
     private func seed() {
         let c = preferences.cutoffs
-        fair = c.fair; good = c.good
-        veryGood = c.veryGood; excellent = c.excellent
+        fair = c.fair; good = c.good; veryGood = c.veryGood; excellent = c.excellent
     }
 
-    private func save() {
+    private func saveCutoffs() {
         guard [fair, good, veryGood, excellent].allSatisfy({ (0...100).contains($0) }) else {
-            cutoffAlert = CutoffAlert(title: "Invalid Cutoffs",
-                                      message: "Each threshold must be between 0 and 100.")
-            return
+            cutoffAlert = "Each threshold must be between 0 and 100."; return
         }
-        // Levels cascade highest-first, so out-of-order thresholds silently
-        // mis-classify ratings. Require them to be non-decreasing.
         guard fair <= good, good <= veryGood, veryGood <= excellent else {
-            cutoffAlert = CutoffAlert(title: "Invalid Cutoffs",
-                                      message: "Thresholds must not decrease: Fair ≤ Good ≤ Very Good ≤ Excellent.")
-            return
+            cutoffAlert = "Thresholds must not decrease: Fair ≤ Good ≤ Very Good ≤ Excellent."; return
         }
-        preferences.setCutoffs(PerformanceCutoffs(
-            fair: fair, good: good, veryGood: veryGood, excellent: excellent
-        ))
-        seed()
-        cutoffAlert = CutoffAlert(title: "Success", message: "Performance cutoffs saved successfully!")
+        preferences.setCutoffs(PerformanceCutoffs(fair: fair, good: good, veryGood: veryGood, excellent: excellent))
+    }
+
+    // MARK: - Bindings into the customization service
+
+    private func labelBinding(_ level: PerformanceLevel) -> Binding<String> {
+        Binding(
+            get: { custom.customization.labels[level.key] ?? "" },
+            set: { custom.setLabel($0, for: level) }
+        )
+    }
+
+    private func colorBinding(_ level: PerformanceLevel) -> Binding<String> {
+        Binding(
+            get: { custom.customization.colorsHex[level.key] ?? "" },
+            set: { custom.setHex($0.isEmpty ? nil : $0, for: level) }
+        )
+    }
+
+    private func trendBinding(improving: Bool) -> Binding<Double> {
+        Binding(
+            get: { improving ? custom.trendImprovingPercent : custom.trendDecliningPercent },
+            set: { custom.setTrendThresholds(
+                improving: improving ? $0 : custom.trendImprovingPercent,
+                declining: improving ? custom.trendDecliningPercent : $0
+            ) }
+        )
+    }
+
+    private func trendLabelBinding(_ keyPath: WritableKeyPath<TrendLabels, String>, default def: String) -> Binding<String> {
+        Binding(
+            get: { custom.customization.trendLabels[keyPath: keyPath] },
+            set: { newValue in
+                var labels = custom.customization.trendLabels
+                labels[keyPath: keyPath] = newValue
+                custom.setTrendLabels(labels)
+            }
+        )
     }
 }

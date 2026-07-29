@@ -88,8 +88,34 @@ public struct PerformanceDataPoint: Equatable {
     }
 }
 
-/// Pure analytics over completed tasks (FUNCTIONALITY.md §8).
+/// A single rated data point for analytics — a date to place it on the timeline
+/// and its 0–100 rating. In v2 the population is **rated entries** (D6.7): an
+/// entry with a recorded `performanceRating`, placed by its `completedAt` and
+/// falling back to its time key when rated without being completed (D6 line note).
+public struct RatedSample: Equatable, Sendable {
+    /// Placement date on the timeline (never nil for a mapped sample).
+    public var completedAt: Date?
+    public var performanceRating: Int
+
+    public init(completedAt: Date?, performanceRating: Int) {
+        self.completedAt = completedAt
+        self.performanceRating = performanceRating
+    }
+}
+
+/// Pure analytics over rated samples (FUNCTIONALITY.md §8; population per D6.7).
 public enum PerformanceAnalytics {
+
+    /// Maps rated entries to timeline samples: only `isRated` entries count, placed
+    /// by `completedAt`, else the entry's time key (D6.7 / analytics fallback).
+    public static func samples(from entries: [Entry]) -> [RatedSample] {
+        entries.compactMap { entry in
+            guard let rating = entry.rating?.performanceRating else { return nil }
+            let date = entry.completion?.completedAt ?? entry.timeKey
+            return RatedSample(completedAt: date, performanceRating: rating)
+        }
+    }
+
 
     private static var calendar: Calendar {
         var c = Calendar(identifier: .gregorian)
@@ -121,11 +147,11 @@ public enum PerformanceAnalytics {
     /// window starts at the earliest trend bucket (not the raw period start) so the
     /// "Tasks Completed" stat and the chart always cover exactly the same tasks.
     public static func filteredTasks(
-        _ tasks: [Task],
+        _ tasks: [RatedSample],
         period: PerformancePeriod,
         customStart: Date? = nil,
         now: Date = Date()
-    ) -> [Task] {
+    ) -> [RatedSample] {
         let start = alignedStart(for: period, tasks: tasks, customStart: customStart, now: now, cal: calendar)
         return tasks.filter { task in
             guard let d = task.completedAt else { return false }
@@ -134,7 +160,7 @@ public enum PerformanceAnalytics {
     }
 
     /// Average performance across the given tasks (0 if empty).
-    public static func average(_ tasks: [Task]) -> Double {
+    public static func average(_ tasks: [RatedSample]) -> Double {
         guard !tasks.isEmpty else { return 0 }
         let sum = tasks.reduce(0) { $0 + $1.performanceRating }
         return Double(sum) / Double(tasks.count)
@@ -145,7 +171,7 @@ public enum PerformanceAnalytics {
     /// 12mo→monthly, 36mo→quarterly, 72mo→half-year, else yearly).
     public static func granularity(
         for period: PerformancePeriod,
-        tasks: [Task] = [],
+        tasks: [RatedSample] = [],
         customStart: Date? = nil,
         now: Date = Date()
     ) -> PerformanceGranularity {
@@ -167,7 +193,7 @@ public enum PerformanceAnalytics {
     /// ends today. Each point averages the `performanceRating` of the tasks
     /// completed in its bucket.
     public static func trendSeries(
-        _ tasks: [Task],
+        _ tasks: [RatedSample],
         period: PerformancePeriod,
         cutoffs: PerformanceCutoffs = .defaults,
         customStart: Date? = nil,
@@ -225,7 +251,7 @@ public enum PerformanceAnalytics {
     /// Start of the analysis window. For All Time this is the earliest completion
     /// so buckets don't stretch back to the epoch.
     private static func windowStart(
-        for period: PerformancePeriod, customStart: Date?, tasks: [Task], now: Date
+        for period: PerformancePeriod, customStart: Date?, tasks: [RatedSample], now: Date
     ) -> Date {
         if period == .allTime {
             return tasks.compactMap(\.completedAt).min() ?? now
@@ -237,7 +263,7 @@ public enum PerformanceAnalytics {
     /// oldest bucket). Buckets are anchored to `now`, so this — not the raw period
     /// start — is the true window edge that the stats must share with the chart.
     private static func alignedStart(
-        for period: PerformancePeriod, tasks: [Task], customStart: Date?, now: Date, cal: Calendar
+        for period: PerformancePeriod, tasks: [RatedSample], customStart: Date?, now: Date, cal: Calendar
     ) -> Date {
         let gran = granularity(for: period, tasks: tasks, customStart: customStart, now: now)
         let start = windowStart(for: period, customStart: customStart, tasks: tasks, now: now)

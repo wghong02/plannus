@@ -1,8 +1,10 @@
 import SwiftUI
 
-/// Bottom tab bar with the app's four destinations (FUNCTIONALITY.md §1).
+/// Bottom tab bar with the app's four destinations (DESIGN.md §1, v2). The Tasks
+/// tab hosts both entries and collections via its internal All ⇄ By-collection
+/// toggle (D6.7).
 struct RootView: View {
-    let database: SwiftDataDatabase
+    let database: EntryDatabase
 
     var body: some View {
         TabView {

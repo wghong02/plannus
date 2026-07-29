@@ -22,6 +22,29 @@ extension PerformancePreferencesService {
     func color(for rating: Int) -> Color { level(for: rating).color }
 }
 
+extension Color {
+    init(_ rgba: ColorHex.RGBA) {
+        self = Color(.sRGB, red: rgba.r, green: rgba.g, blue: rgba.b, opacity: rgba.a)
+    }
+}
+
+extension PerformanceCustomizationService {
+    /// The level's fill — the custom `#RRGGBBAA` if set, else the Palette default (D10).
+    func color(for level: PerformanceLevel) -> Color {
+        if let hex = hex(for: level), let rgba = ColorHex.parse(hex) { return Color(rgba) }
+        return level.color
+    }
+
+    /// Black-vs-white badge text for the level's fill, by WCAG contrast (D10.5).
+    /// The default Palette fills are saturated and pair with white.
+    func textColor(for level: PerformanceLevel) -> Color {
+        if let hex = hex(for: level), let rgba = ColorHex.parse(hex) {
+            return ColorHex.preferBlackText(onFill: rgba) ? .black : .white
+        }
+        return .white
+    }
+}
+
 extension View {
     /// The standard rounded, bordered "card" surface used across the app.
     /// Uses adaptive system colors, so it renders correctly in dark mode.
