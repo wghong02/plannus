@@ -673,7 +673,12 @@ real tests (cite them with `// spec: <ID>`), and check off the matching *Rework 
 entry persistence · `ESVC` entry service · `COL` collections · `SORT` sort/filter · `REM`
 reminders · `CLR` level colors · `LBL` level labels · `TRND` overall-trend · `SLD` slider fields ·
 `TUT` tutorials · `DUR` durations · `SER` series/recurrence. Tags: **(u)** unit · **(i)**
-integration (store/`UserDefaults`) · **(v)** view (XCUITest or unit-after-extraction).
+integration (store/`UserDefaults`) · **(v)** view logic — **unit-after-extraction**: the assertion
+is pure logic (default/enable predicate, sort/filter application, routing target, regeneration,
+reset) that currently lives in a `View`; it becomes **(u)** once pulled into a helper/view-model
+per the *Extract view logic* rework task — so v2 targets **no XCUITest** (build these
+view-model-backed). Purely cosmetic details (exact toolbar corner, pixel layout) are not test
+assertions. This covers **`PREF-UI` and every `(v)` row** below.
 
 ### D1 — per-entity persistence
 | ID | Tag | Assertion (given → when → then) | Covers |
