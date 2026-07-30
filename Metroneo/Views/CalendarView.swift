@@ -8,6 +8,7 @@ struct CalendarView: View {
     @EnvironmentObject private var entryService: EntryService
     @EnvironmentObject private var collectionService: CollectionService
     @EnvironmentObject private var seriesService: SeriesService
+    @EnvironmentObject private var router: NotificationRouter
 
     @State private var selectedDay = Calendar.current.startOfDay(for: Date())
     @State private var filter = EntryFilter.none
@@ -59,6 +60,13 @@ struct CalendarView: View {
                 }
             }
             .sheet(item: $activeSheet) { $0.view }
+            .onChange(of: router.pendingCalendarDate) { _, date in
+                // A tapped reminder deep-links here to the entry's day (D9.4).
+                if let date {
+                    selectedDay = Calendar.current.startOfDay(for: date)
+                    router.pendingCalendarDate = nil
+                }
+            }
             .confirmationDialog(
                 pendingDelete.map { "Delete “\($0.title)”?" } ?? "Delete entry?",
                 isPresented: Binding(get: { pendingDelete != nil }, set: { if !$0 { pendingDelete = nil } }),

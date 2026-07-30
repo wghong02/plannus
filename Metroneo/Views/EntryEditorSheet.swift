@@ -1,4 +1,5 @@
 import SwiftUI
+import UserNotifications
 
 /// The single editor for every entry (DESIGN.md §6.1+§7.1 merged). Presents the
 /// union of schedule, deadline, recurrence, reminder, tracking, durations, types,
@@ -9,6 +10,7 @@ struct EntryEditorSheet: View {
     @EnvironmentObject private var entryService: EntryService
     @EnvironmentObject private var collectionService: CollectionService
     @EnvironmentObject private var seriesService: SeriesService
+    @EnvironmentObject private var reminderScheduler: ReminderScheduler
     @Environment(\.dismiss) private var dismiss
 
     private let existing: Entry?
@@ -182,10 +184,22 @@ struct EntryEditorSheet: View {
 
     private var reminderSection: some View {
         Section("Reminder") {
-            Toggle("Remind me", isOn: $hasReminder)
-            if hasReminder {
-                Picker("Lead time", selection: $reminderMinutes) {
-                    ForEach(ReminderLead.presets, id: \.self) { Text(Self.leadLabel($0)).tag($0) }
+            if reminderScheduler.authorization == .denied {
+                // No inert reminders — the control is gated on authorization (D9.3a).
+                Toggle("Remind me", isOn: .constant(false)).disabled(true)
+                Text("Enable notifications in Settings to use reminders.")
+                    .font(.caption).foregroundStyle(.secondary)
+            } else {
+                Toggle("Remind me", isOn: $hasReminder)
+                    .onChange(of: hasReminder) { _, on in
+                        if on, reminderScheduler.authorization == .notDetermined {
+                            reminderScheduler.requestAuthorization()
+                        }
+                    }
+                if hasReminder {
+                    Picker("Lead time", selection: $reminderMinutes) {
+                        ForEach(ReminderLead.presets, id: \.self) { Text(Self.leadLabel($0)).tag($0) }
+                    }
                 }
             }
         }

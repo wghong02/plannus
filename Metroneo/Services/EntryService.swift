@@ -12,9 +12,12 @@ public final class EntryService: ObservableObject {
     @Published public private(set) var entries: [Entry] = []
 
     private let db: EntryDatabase
+    /// Optional reminder side-effect hook (D9). `nil` in unit tests.
+    private let scheduler: ReminderScheduling?
 
-    public init(db: EntryDatabase) {
+    public init(db: EntryDatabase, scheduler: ReminderScheduling? = nil) {
         self.db = db
+        self.scheduler = scheduler
     }
 
     // MARK: - Loading
@@ -40,6 +43,7 @@ public final class EntryService: ObservableObject {
         } else {
             entries.append(entry)
         }
+        scheduler?.reschedule(for: entry)
     }
 
     /// Removes one entry (D1.2) and drops its id from every collection (D5.6).
@@ -52,6 +56,7 @@ public final class EntryService: ObservableObject {
             return
         }
         entries.removeAll { $0.id == id }
+        scheduler?.cancel(entryId: id)
     }
 
     /// Marks an entry complete (`completedAt = now`). No-op if the entry isn't
@@ -97,5 +102,7 @@ public final class EntryService: ObservableObject {
             return
         }
         entries[index] = updated
+        // Completing cancels, un-completing re-arms, a time change reschedules (D9.5).
+        scheduler?.reschedule(for: updated)
     }
 }
