@@ -162,9 +162,9 @@ Collection { id, name, ordering: .ordered | .parallel, memberIds: [EntryId] }
   recorded rating** (`rating?.performanceRating != nil` — D6, including rated events + former
   subtasks), the legend/badges use **custom labels** (D8), and a rated entry is placed on the
   timeline by its **`completedAt`, falling back to its time key** (D7.1: `scheduled.start` else
-  `deadline`) when it was rated without being completed. *(v2 currently renders the trend as simple
-  placeholder bar-rows; **D16** upgrades it to the two Swift Charts plots — line + distribution —
-  ported from the pre-rebuild view.)*
+  `deadline`) when it was rated without being completed. *(The trend renders as two Swift Charts
+  plots — a monotone average line with cutoff reference lines + a stacked distribution bar — per
+  **D16**.)*
 - **Settings (§9) & bootstrap (§10):** carry **unchanged in shape** — §9's single **Performance
   Cutoffs** screen grows into the combined **Performance customization** screen (D8/D10/D12; see
   the consolidated screen note under D12), and §10 keeps its shape (construct store → inject →
@@ -585,7 +585,7 @@ occurrenceIndex: Int?      // 0-based position within the series (the "series nu
 D6.8. *New capability.* *(By-weekday / by-monthday refinements
 to `RecurrenceRule` are a natural later extension — the shape follows the iCal RFC 5545 subset.)*
 
-### D16 — Performance trend & distribution charts · proposal · depends: D6, D8, D10
+### D16 — Performance trend & distribution charts · agreed (shipped) · depends: D6, D8, D10
 The Performance tab renders two stacked **Swift Charts** plots over the existing trend series
 ([PA-05]…[PA-08]), replacing v2's current placeholder bar-rows. The per-bucket data —
 `average`, `taskCount`, and `levelCounts` — already exists on `PerformanceDataPoint`, so this is a
@@ -610,10 +610,10 @@ The Performance tab renders two stacked **Swift Charts** plots over the existing
   X-axis labels **rotate vertical once there are > 8 buckets**; plot styled with left + bottom edge
   lines and no interior grid.
 
-*Reference implementation:* the pre-rebuild chart view
-(`git show 881a5d6:Metroneo/Views/PerformanceView.swift`) — the v2 update ports it onto the entry /
-`RatedSample` series and the custom labels/colors. *(Was `[PV-03]`/`[PV-04]`/`[PV-06]` in the retired
-FUNCTIONALITY.md.)* *New capability* relative to v2's placeholder.
+*Shipped:* `PerformanceView` renders both plots (ported from the pre-rebuild chart view,
+`git show 881a5d6:Metroneo/Views/PerformanceView.swift`) onto the entry / `RatedSample` series with
+the custom labels/colors; chart rendering is covered by `UITEST-08`. *(Was `[PV-03]`/`[PV-04]`/
+`[PV-06]` in the retired FUNCTIONALITY.md.)*
 
 ---
 
@@ -697,8 +697,8 @@ FUNCTIONALITY.md.)* *New capability* relative to v2's placeholder.
 
 The tests for each **D-requirement**. The v2 model has **shipped** and most of these rows are
 **implemented and passing** (unit/integration under `MetroneoTests`, the `(x)` flows under
-`MetroneoUITests`); tests cite their row with a `// spec: <ID>` comment. `D16` (charts) is still a
-placeholder in the app, so its plot rows are pending. This appendix is the traceability map between
+`MetroneoUITests`); tests cite their row with a `// spec: <ID>` comment. `D16`'s charts are shipped,
+with their rendering covered by the `UITEST-08` flow. This appendix is the traceability map between
 the spec and the suite.
 
 **Reserved ID prefixes (new):** `ENT` Entry model/aspects · `EGRP` calendar grouping · `EDB`
@@ -841,9 +841,4 @@ Tag **(x)** = XCUITest.
 | UITEST-05 | x | Tasks → By-collection → **+** → name it → Create → the collection displays | D5 |
 | UITEST-06 | x | Calendar → **+** → save → the entry lands on the selected day (dated by default) | §6 / D6.5 |
 | UITEST-07 | x | Performance tab renders its stat cards (Rated / Average) | §8 |
-
-### Existing tests to invert / retire when v2 lands
-Called out by the *Ripple* lines above — track so they aren't missed:
-- **Invert:** `testEmptyTypesRoundTripToNil` (→ `[]` stays `[]`, ENT-TYP-01), `testBlankTitlesDefaultOnSave` / `testBlankTitleDefaults` (→ store **rejects**, ENT-TTL-01).
-- **Retire/replace:** [DB-01] whole-set replace (→ EDB-01/02), [DTU-07] `incompleteTasks` (→ EGRP-01…04), [TS-09] `toggleSubTask` (subtasks gone), the `Event.makeID` timestamp test [DM-04] (→ ENT-ID-02).
-- **Carry unchanged:** the analytics math [PA-01…11], date utils [DTU-01…06], and preference cutoff logic [PP-01/02] — only their *population/inputs* change, not the formulas.
+| UITEST-08 | x | with seeded rated data, the Performance **charts** render — trend + distribution sections + the custom-label legend (Excellent…Poor) | D16 |

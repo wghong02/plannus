@@ -123,4 +123,20 @@ final class MetroneoUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Rated"].waitForExistence(timeout: 5), "stat cards render")
         XCTAssertTrue(app.staticTexts["Average"].exists)
     }
+
+    @MainActor
+    func testPerformanceChartsRender() throws {
+        let app = XCUIApplication()
+        // Seed rated entries across recent weeks so the charts have data (D16).
+        app.launchArguments += ["-SEED-PERF", "-@onboarding_seen", "YES"]
+        app.launch()
+        tab(app, "Performance")
+
+        XCTAssertTrue(app.staticTexts["Trends"].waitForExistence(timeout: 5))
+        // The distribution section + legend only appear when the charts have data.
+        XCTAssertTrue(app.staticTexts["Rated Entries"].waitForExistence(timeout: 5),
+                      "distribution chart renders with seeded data")
+        XCTAssertTrue(app.staticTexts["Excellent"].exists, "legend uses custom level labels")
+        XCTAssertTrue(app.staticTexts["Poor"].exists)
+    }
 }
