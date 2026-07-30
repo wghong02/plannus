@@ -1,18 +1,18 @@
 # Metroneo — Design Notes
 
-The **target/eventual behavior** of the app, plus the rework **tasks** to get there.
-[`FUNCTIONALITY.md`](FUNCTIONALITY.md) is the **current, shipped** behavior. When a design
-here ships, fold it into that doc (as new/updated behavior IDs + tests) and check off its
-task below.
+The **spec of the app** (the v2 model shipped in this rebuild), plus the rework **tasks** and the
+**test plan**. This is now the single source of behavior — the old `FUNCTIONALITY.md` (which
+tracked the retired v1 Task/Event model) has been removed; legacy behavior IDs it defined
+(`PA-*`, `PV-*`, `TS-*`, …) are cited here only as historical anchors for what a requirement
+changed.
 
 Three parts:
 
-- **Vision** — how the envisioned next version (v2) works as a whole.
-- **Target behavior** — the numbered requirements (**D1–D8**) that get there. Each heading
+- **Vision** — how v2 works as a whole.
+- **Target behavior** — the numbered requirements (**D1–D16**) that define it. Each heading
   carries a **status** (**agreed**/**proposal**) and its **`depends:`** list; its individual
   requirements are sub-numbered **`Dn.m`** (e.g. `D6.5`) for precise citation; the body notes the
-  current `FUNCTIONALITY.md` behavior IDs it changes. Build order is in *Dependencies & build
-  order* below.
+  legacy behavior IDs it changed. Build order is in *Dependencies & build order* below.
 - **Rework tasks** — the concrete steps. *Provisional: we'll confirm the right approach when
   actually working on each refactor.*
 
@@ -162,7 +162,9 @@ Collection { id, name, ordering: .ordered | .parallel, memberIds: [EntryId] }
   recorded rating** (`rating?.performanceRating != nil` — D6, including rated events + former
   subtasks), the legend/badges use **custom labels** (D8), and a rated entry is placed on the
   timeline by its **`completedAt`, falling back to its time key** (D7.1: `scheduled.start` else
-  `deadline`) when it was rated without being completed.
+  `deadline`) when it was rated without being completed. *(v2 currently renders the trend as simple
+  placeholder bar-rows; **D16** upgrades it to the two Swift Charts plots — line + distribution —
+  ported from the pre-rebuild view.)*
 - **Settings (§9) & bootstrap (§10):** carry **unchanged in shape** — §9's single **Performance
   Cutoffs** screen grows into the combined **Performance customization** screen (D8/D10/D12; see
   the consolidated screen note under D12), and §10 keeps its shape (construct store → inject →
@@ -583,6 +585,36 @@ occurrenceIndex: Int?      // 0-based position within the series (the "series nu
 D6.8. *New capability.* *(By-weekday / by-monthday refinements
 to `RecurrenceRule` are a natural later extension — the shape follows the iCal RFC 5545 subset.)*
 
+### D16 — Performance trend & distribution charts · proposal · depends: D6, D8, D10
+The Performance tab renders two stacked **Swift Charts** plots over the existing trend series
+([PA-05]…[PA-08]), replacing v2's current placeholder bar-rows. The per-bucket data —
+`average`, `taskCount`, and `levelCounts` — already exists on `PerformanceDataPoint`, so this is a
+**rendering layer**, not new analytics.
+
+- **D16.1 — Top plot (average line):** a `LineMark` of each bucket's `average` vs its period label,
+  `.interpolationMethod(.monotone)` (a monotone fit never overshoots, so the line stays within
+  0–100), plus a `PointMark` per bucket colored by that average's **level color** (D10). **Empty
+  buckets render as a gap** — plot only buckets with `taskCount > 0`, never a drop to 0. Y scale is
+  fixed `0…100`.
+- **D16.2 — Cutoff reference lines:** a dashed `RuleMark(y:)` at each cutoff (fair / good / veryGood
+  / excellent), colored by the level color at ~0.55 opacity (`StrokeStyle(lineWidth: 1.6,
+  dash: [5, 3])`).
+- **D16.3 — Bottom plot (distribution):** a **stacked `BarMark`** per bucket — one segment per
+  `PerformanceLevel` sized by that bucket's `levelCounts`, colored by the level color (D10); Y = task
+  count. Shares the top plot's X scale.
+- **D16.4 — Shared category legend** (Excellent → Poor) beneath the plots, using the **custom labels
+  (D8) + custom colors (D10)**.
+- **D16.5 — Interaction:** `.chartXSelection` on the top plot drops a `RuleMark(x:)` at the selected
+  bucket with a callout annotation (period · avg · task count) — tap/drag to inspect.
+- **D16.6 — Axes:** Y axis leading with **fixed-width labels** so both plots' plot areas line up;
+  X-axis labels **rotate vertical once there are > 8 buckets**; plot styled with left + bottom edge
+  lines and no interior grid.
+
+*Reference implementation:* the pre-rebuild chart view
+(`git show 881a5d6:Metroneo/Views/PerformanceView.swift`) — the v2 update ports it onto the entry /
+`RatedSample` series and the custom labels/colors. *(Was `[PV-03]`/`[PV-04]`/`[PV-06]` in the retired
+FUNCTIONALITY.md.)* *New capability* relative to v2's placeholder.
+
 ---
 
 ## Rework tasks
@@ -663,10 +695,11 @@ to `RecurrenceRule` are a natural later extension — the shape follows the iCal
 
 ## Appendix — v2 test plan
 
-The tests each **D-requirement** becomes when it ships. **These are not written yet** — the v2
-types (`Entry`, `Collection`, `Series`, the aspects) don't exist in code, so this is a *backlog*,
-not a suite. When a D-item ships, promote its rows here into `FUNCTIONALITY.md` behavior IDs +
-real tests (cite them with `// spec: <ID>`), and check off the matching *Rework task*.
+The tests for each **D-requirement**. The v2 model has **shipped** and most of these rows are
+**implemented and passing** (unit/integration under `MetroneoTests`, the `(x)` flows under
+`MetroneoUITests`); tests cite their row with a `// spec: <ID>` comment. `D16` (charts) is still a
+placeholder in the app, so its plot rows are pending. This appendix is the traceability map between
+the spec and the suite.
 
 **Reserved ID prefixes (new):** `ENT` Entry model/aspects · `EGRP` calendar grouping · `EDB`
 entry persistence · `ESVC` entry service · `COL` collections · `SORT` sort/filter · `REM`

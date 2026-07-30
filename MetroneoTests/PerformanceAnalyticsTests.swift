@@ -1,7 +1,7 @@
 import XCTest
 @testable import Metroneo
 
-/// Analytics math (unchanged from v1 — FUNCTIONALITY.md §8 / PA-*), now over
+/// Analytics math (unchanged from v1 — DESIGN.md §8 / PA-*), now over
 /// ``RatedSample`` (population per D6.7).
 final class PerformanceAnalyticsTests: XCTestCase {
 

@@ -1,6 +1,6 @@
 import Foundation
 
-/// Time window for performance analytics (FUNCTIONALITY.md §8).
+/// Time window for performance analytics (DESIGN.md §8).
 public enum PerformancePeriod: String, CaseIterable {
     case week, month, threeMonths, year, allTime, custom
 
@@ -103,7 +103,7 @@ public struct RatedSample: Equatable, Sendable {
     }
 }
 
-/// Pure analytics over rated samples (FUNCTIONALITY.md §8; population per D6.7).
+/// Pure analytics over rated samples (DESIGN.md §8; population per D6.7).
 public enum PerformanceAnalytics {
 
     /// Maps rated entries to timeline samples: only `isRated` entries count, placed
