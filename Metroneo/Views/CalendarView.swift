@@ -57,6 +57,7 @@ struct CalendarView: View {
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button { activeSheet = .add(day: selectedDay) } label: { Image(systemName: "plus") }
+                        .accessibilityIdentifier("addButton")
                 }
             }
             .sheet(item: $activeSheet) { $0.view }

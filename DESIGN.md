@@ -793,13 +793,21 @@ test assertions. This covers **`PREF-UI` and every `(v)` row** below.
 | SER-09 | i | reminders are per occurrence; regeneration re-arms affected future ones, cancels removed | D15.7 |
 | SER-10 | i | `Series` is a per-entity record; series-delete removes members object-by-object then the row; an empty series is pruned | D15.8 |
 
-### UI smoke (`MetroneoUITests` — XCUITest)
-The thin XCUITest layer for behaviors that genuinely need a running app (not unit-extractable).
+### UI flows (`MetroneoUITests` — XCUITest)
+End-to-end flows that exercise real wiring unit tests can't reach (create → persist → display),
+plus the smoke checks for genuinely un-unit-testable UI. Each flow launches with a clean store
+(`-UITEST-RESET`) and skips onboarding unless it's the subject; controls carry stable
+`accessibilityIdentifier`s (`addButton`, `entryTitleField`, `saveEntryButton`, `completeToggle`).
 Tag **(x)** = XCUITest.
 | ID | Tag | Assertion | Covers |
 | --- | --- | --- | --- |
 | UITEST-01 | x | launch → the four tabs (Calendar/Tasks/Performance/Settings) render and navigate | §1 |
 | UITEST-02 | x | first-run onboarding appears and **Skip dismisses** it to the tabs | D13.1/D13.2 |
+| UITEST-03 | x | Tasks → **+** → type a title → save → the entry **displays** in the list | §7 / D1.5 |
+| UITEST-04 | x | complete an entry → the **completion sheet** appears → Done → the entry remains | §7.2 / D6 |
+| UITEST-05 | x | Tasks → By-collection → **+** → name it → Create → the collection displays | D5 |
+| UITEST-06 | x | Calendar → **+** → save → the entry lands on the selected day (dated by default) | §6 / D6.5 |
+| UITEST-07 | x | Performance tab renders its stat cards (Rated / Average) | §8 |
 
 ### Existing tests to invert / retire when v2 lands
 Called out by the *Ripple* lines above — track so they aren't missed:

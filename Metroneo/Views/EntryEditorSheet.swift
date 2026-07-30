@@ -78,7 +78,9 @@ struct EntryEditorSheet: View {
         _allDay = State(initialValue: e.scheduled?.allDay ?? false)
         _scheduleStart = State(initialValue: e.scheduled?.start ?? (defaultDay ?? Date()))
         _scheduleEnd = State(initialValue: e.scheduled?.end ?? (defaultDay ?? Date()).addingTimeInterval(3600))
-        _hasDeadline = State(initialValue: e.deadline != nil)
+        // A calendar "Add" (defaultDay set, new entry) defaults to a deadline on
+        // that day so the entry lands on the selected day (DESIGN.md §6).
+        _hasDeadline = State(initialValue: e.deadline != nil || (entry == nil && defaultDay != nil))
         _deadlineDate = State(initialValue: e.deadline?.date ?? DateTimeUtilities.endOfDay(defaultDay ?? Date()))
         _deadlineHasTime = State(initialValue: e.deadline?.hasTime ?? false)
         _repeats = State(initialValue: false)
@@ -104,6 +106,7 @@ struct EntryEditorSheet: View {
             Form {
                 Section {
                     TextField("New Entry", text: $title)
+                        .accessibilityIdentifier("entryTitleField")
                     TextField("Notes", text: $notes, axis: .vertical)
                 }
                 Section("Priority") { SliderField(title: "Priority", value: $priority) }
@@ -124,6 +127,7 @@ struct EntryEditorSheet: View {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
                     Button { attemptSave() } label: { Image(systemName: "checkmark") }
+                        .accessibilityIdentifier("saveEntryButton")
                 }
             }
             .alert("Invalid Entry", isPresented: Binding(get: { validationMessage != nil }, set: { if !$0 { validationMessage = nil } })) {

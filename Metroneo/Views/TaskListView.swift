@@ -46,7 +46,13 @@ struct TaskListView: View {
                 ToolbarItem(placement: .topBarLeading) {
                     FilterMenu(filter: $filter, tags: allTags, collections: collectionService.collections)
                 }
-                ToolbarItem(placement: .topBarTrailing) { trailingButtons }
+                ToolbarItem(placement: .topBarTrailing) { sortMenu }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        if mode == .all { activeSheet = .add(day: nil) } else { creatingCollection = true }
+                    } label: { Image(systemName: "plus") }
+                        .accessibilityIdentifier("addButton")
+                }
             }
             .sheet(item: $activeSheet) { $0.view }
             .alert("New Collection", isPresented: $creatingCollection) {
@@ -66,7 +72,7 @@ struct TaskListView: View {
         }
     }
 
-    @ViewBuilder private var trailingButtons: some View {
+    private var sortMenu: some View {
         Menu {
             Picker("Sort", selection: $sort) {
                 Text("Time ↑").tag(EntrySortOrder.timeAscending)
@@ -74,9 +80,6 @@ struct TaskListView: View {
                 Text("A–Z").tag(EntrySortOrder.alphabetical)
             }
         } label: { Image(systemName: "arrow.up.arrow.down") }
-        Button {
-            if mode == .all { activeSheet = .add(day: nil) } else { creatingCollection = true }
-        } label: { Image(systemName: "plus") }
     }
 
     // MARK: - All entries

@@ -15,6 +15,7 @@ struct EntryRow: View {
                         .foregroundStyle(entry.isCompleted ? Color.accentColor : Color.secondary)
                 }
                 .buttonStyle(.plain)
+                .accessibilityIdentifier("completeToggle")
             }
             VStack(alignment: .leading, spacing: 2) {
                 Text(entry.title)

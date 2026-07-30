@@ -19,6 +19,9 @@ struct MetroneoApp: App {
         let db = try! EntryDatabase()
         self.database = db
 
+        // UI tests launch with a clean store for deterministic flows.
+        if CommandLine.arguments.contains("-UITEST-RESET") { try? db.reset() }
+
         let router = NotificationRouter()
         let scheduler = ReminderScheduler(router: router)
         _router = StateObject(wrappedValue: router)
