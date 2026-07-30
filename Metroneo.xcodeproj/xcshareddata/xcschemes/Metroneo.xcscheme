@@ -38,6 +38,16 @@
                ReferencedContainer = "container:Metroneo.xcodeproj">
             </BuildableReference>
          </TestableReference>
+         <TestableReference
+            skipped = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "1A00000000000000000000050"
+               BuildableName = "MetroneoUITests.xctest"
+               BlueprintName = "MetroneoUITests"
+               ReferencedContainer = "container:Metroneo.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
       </Testables>
    </TestAction>
    <LaunchAction

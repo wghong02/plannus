@@ -170,9 +170,9 @@ Collection { id, name, ordering: .ordered | .parallel, memberIds: [EntryId] }
   `EventService`.
 - **List order:** default by time (an entry's `scheduled` start, else `deadline`) **ascending**
   (soonest first), with untimed/undated entries at the bottom; configurable via a sort selector (D7).
-- **Migration:** today's task → `deadline` + tracking on; event → `scheduled` + tracking off;
-  subtask → an entry in a collection; a `recurring` task → a **single one-off entry** (its inert
-  recurrence fields don't expand — D15 migration).
+- **Migration:** **none — dropped.** v2 ships as a fresh entry store; there are no v1 users, so
+  the legacy task/event store is not read or converted. *(The default-value rationale in D6.4 —
+  a task-like entry tracks, an event-like one doesn't — is design intent, not a data migration.)*
 - **D1–D4 apply here too:** `Entry` uses per-entity persistence (D1), a non-optional UUID `id`
   (D2), a required title (D3), and non-optional `types` (D4) — durable principles that hold for
   `Entry`, not just the current model.
@@ -579,10 +579,8 @@ occurrenceIndex: Int?      // 0-based position within the series (the "series nu
   delete removes member entries **object-by-object** (D1.3) then the series row; a series with no
   remaining members is pruned.
 
-*Migration:* today's recurrence was **inert** (no occurrences ever existed), so there is nothing
-to expand — an existing `recurring` task migrates to a **single one-off entry** (`seriesId = nil`);
-its old `frequencyPattern`/`frequencyCount` inform a `RecurrenceRule` only when the user re-enables
-recurrence in the editor. *Supersedes* D6.8. *New capability.* *(By-weekday / by-monthday refinements
+*Migration:* n/a — no v1 data is migrated (see the *Migration* note in the Vision). *Supersedes*
+D6.8. *New capability.* *(By-weekday / by-monthday refinements
 to `RecurrenceRule` are a natural later extension — the shape follows the iCal RFC 5545 subset.)*
 
 ---
@@ -611,8 +609,9 @@ to `RecurrenceRule` are a natural later extension — the shape follows the iCal
   title, non-optional `types`): introduce `Entry` (optional `scheduled`/`deadline` time per
   Option A + independent `completion`/`rating` aspects, tracking on by default, standalone
   `priorityRating`) and
-  `Collection` (ordered `memberIds`, **M2M**, `.ordered`/`.parallel`); migrate `Task`, `SubTask`,
-  and `Event` into `Entry`; wire deletion (remove-from-collection drops one `memberIds` id;
+  `Collection` (ordered `memberIds`, **M2M**, `.ordered`/`.parallel`); **replace** `Task`,
+  `SubTask`, and `Event` with `Entry` (delete the old types — no data migration, no v1 users);
+  wire deletion (remove-from-collection drops one `memberIds` id;
   delete-entry drops it from **all**; collection-delete doesn't cascade); make Calendar / Tasks
   tab / analytics views over the entry set (undated entries in the list only; calendar shows
   completed-below-incomplete with multi-day `scheduled` spanning all its days); build the Tasks-tab
@@ -676,9 +675,10 @@ reminders · `CLR` level colors · `LBL` level labels · `TRND` overall-trend ·
 integration (store/`UserDefaults`) · **(v)** view logic — **unit-after-extraction**: the assertion
 is pure logic (default/enable predicate, sort/filter application, routing target, regeneration,
 reset) that currently lives in a `View`; it becomes **(u)** once pulled into a helper/view-model
-per the *Extract view logic* rework task — so v2 targets **no XCUITest** (build these
-view-model-backed). Purely cosmetic details (exact toolbar corner, pixel layout) are not test
-assertions. This covers **`PREF-UI` and every `(v)` row** below.
+per the *Extract view logic* rework task — so v2 keeps XCUITest to a **thin smoke layer**
+(a `MetroneoUITests` target covers only what can't be unit-tested — cover dismissal, tab render;
+see the *UI smoke* table). Purely cosmetic details (exact toolbar corner, pixel layout) are not
+test assertions. This covers **`PREF-UI` and every `(v)` row** below.
 
 ### D1 — per-entity persistence
 | ID | Tag | Assertion (given → when → then) | Covers |
@@ -712,7 +712,7 @@ assertions. This covers **`PREF-UI` and every `(v)` row** below.
 | COL-08 | i | remove-from-collection drops the id from **that** collection only; entry + other collections keep it | D5.6 |
 | COL-09 | i | `deleteEntry(x)` drops x from **every** collection's `memberIds`, then deletes x | D5.6 |
 | COL-10 | i | delete-collection removes the grouping only; member entries survive; nothing cascades | D5.6 |
-| COL-11 | i | a migrated former-subtask that is rated counts in analytics, and if dated shows on the calendar | D5.7 |
+| COL-11 | i | a former-subtask is now a first-class entry — a rated one counts in analytics, and a dated one shows on the calendar | D5.7 |
 
 ### D6 — Entry model, aspects, calendar grouping
 | ID | Tag | Assertion | Covers |
@@ -772,8 +772,8 @@ assertions. This covers **`PREF-UI` and every `(v)` row** below.
 | --- | --- | --- | --- |
 | SLD-01 | v | slider ↔ number field share one value; dragging updates the field and vice-versa | D11.1 |
 | SLD-02 | u | typed input clamped 0–100 (`150`→100, `-5`→0); non-numeric/blank → falls back to current value | D11.2 |
-| TUT-01 | i | first launch shows onboarding; a `UserDefaults` "seen" flag is set; not shown again after seen/skip | D13.1/D13.2 |
-| TUT-02 | v | replayable from Settings ("Show tutorial") | D13.3 |
+| TUT-01 | u | `OnboardingGate.shouldShow` is true on first launch; `markSeen` persists (not shown again after seen/skip) | D13.1/D13.2 |
+| TUT-02 | u | `OnboardingGate.replay` re-arms the walkthrough (Settings "Show Tutorial Again"); the cover dismiss + Skip/Get Started wiring is view-level | D13.3 |
 | DUR-01 | u | estimated & actual are independent optionals (either/both/neither) | D14.1 |
 | DUR-02 | v | completion sheet's actualDuration field defaults to `estimatedDuration`, **blank when it's nil** (stays nil if untouched) | D14.2 |
 | DUR-03 | u | both present → estimate-vs-actual delta (est 30, act 45 → "+15 min") | D14.3 |
@@ -792,6 +792,22 @@ assertions. This covers **`PREF-UI` and every `(v)` row** below.
 | SER-08 | v/i | edit/delete scope: **This** detaches (clears `seriesId`/`occurrenceIndex`, touches only it); **This-and-future** regenerates from this index forward (earlier untouched); **All** edits template + regenerates whole; delete mirrors | D15.6 |
 | SER-09 | i | reminders are per occurrence; regeneration re-arms affected future ones, cancels removed | D15.7 |
 | SER-10 | i | `Series` is a per-entity record; series-delete removes members object-by-object then the row; an empty series is pruned | D15.8 |
+
+### UI flows (`MetroneoUITests` — XCUITest)
+End-to-end flows that exercise real wiring unit tests can't reach (create → persist → display),
+plus the smoke checks for genuinely un-unit-testable UI. Each flow launches with a clean store
+(`-UITEST-RESET`) and skips onboarding unless it's the subject; controls carry stable
+`accessibilityIdentifier`s (`addButton`, `entryTitleField`, `saveEntryButton`, `completeToggle`).
+Tag **(x)** = XCUITest.
+| ID | Tag | Assertion | Covers |
+| --- | --- | --- | --- |
+| UITEST-01 | x | launch → the four tabs (Calendar/Tasks/Performance/Settings) render and navigate | §1 |
+| UITEST-02 | x | first-run onboarding appears and **Skip dismisses** it to the tabs | D13.1/D13.2 |
+| UITEST-03 | x | Tasks → **+** → type a title → save → the entry **displays** in the list | §7 / D1.5 |
+| UITEST-04 | x | complete an entry → the **completion sheet** appears → Done → the entry remains | §7.2 / D6 |
+| UITEST-05 | x | Tasks → By-collection → **+** → name it → Create → the collection displays | D5 |
+| UITEST-06 | x | Calendar → **+** → save → the entry lands on the selected day (dated by default) | §6 / D6.5 |
+| UITEST-07 | x | Performance tab renders its stat cards (Rated / Average) | §8 |
 
 ### Existing tests to invert / retire when v2 lands
 Called out by the *Ripple* lines above — track so they aren't missed:

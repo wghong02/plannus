@@ -1,206 +1,165 @@
 import SwiftUI
 
-/// Tasks tab: Upcoming/Completed toggle, task cards with completion, subtasks,
-/// and performance rating (FUNCTIONALITY.md §7).
+/// Tasks tab (DESIGN.md §7, v2). Home for entries *and* collections via a
+/// segmented **All entries ⇄ By collection** toggle. A leading filter control and
+/// a trailing sort selector (D7.7/D7.8) drive the All-entries list; By-collection
+/// browses collections (with an Ungrouped pseudo-group).
 struct TaskListView: View {
-    @EnvironmentObject private var tasks: TaskService
-    @EnvironmentObject private var preferences: PerformancePreferencesService
+    @EnvironmentObject private var entryService: EntryService
+    @EnvironmentObject private var collectionService: CollectionService
+    @EnvironmentObject private var seriesService: SeriesService
 
-    @State private var showCompleted = false
-    @State private var editingTask: Task?
-    @State private var creatingTask = false
-    @State private var ratingTarget: RatingTarget?
-    @State private var blockedAlert = false
+    enum Mode: String, CaseIterable { case all = "All", byCollection = "Collections" }
 
-    private struct RatingTarget: Identifiable {
-        let id = UUID()
-        let task: Task
-        /// When true, saving also marks the task complete.
-        let completing: Bool
+    @State private var mode: Mode = .all
+    @State private var sort: EntrySortOrder = .timeAscending
+    @State private var filter = EntryFilter.none
+    @State private var activeSheet: EntrySheet?
+    @State private var pendingDelete: Entry?
+    @State private var creatingCollection = false
+    @State private var newCollectionName = ""
+
+    private var visibleEntries: [Entry] {
+        EntryQuery.sort(EntryQuery.filter(entryService.entries, with: filter), by: sort)
     }
 
-    private var upcoming: [Task] {
-        tasks.tasks.filter { !$0.isCompleted }
-            .sorted { $0.deadline < $1.deadline }
+    private var ungrouped: [Entry] {
+        let grouped = Set(collectionService.collections.flatMap(\.memberIds))
+        return visibleEntries.filter { !grouped.contains($0.id) }
     }
-    private var completed: [Task] {
-        tasks.tasks.filter { $0.isCompleted }
-            .sorted { ($0.completedAt ?? .distantPast) > ($1.completedAt ?? .distantPast) }
-    }
-    private var current: [Task] { showCompleted ? completed : upcoming }
+
+    private var allTags: [String] { Array(Set(entryService.entries.flatMap(\.types))).sorted() }
 
     var body: some View {
         NavigationStack {
-            ZStack(alignment: .bottomTrailing) {
-                List {
-                    ForEach(current) { task in
-                        TaskCard(
-                            task: task,
-                            preferences: preferences,
-                            onToggleComplete: { toggleCompletion(task) },
-                            onToggleSubTask: { sub in
-                                if let tid = task.id, let sid = sub.id {
-                                    tasks.toggleSubTask(taskId: tid, subTaskId: sid)
-                                }
-                            },
-                            onEdit: { editingTask = task },
-                            onEditRating: {
-                                if task.isCompleted { ratingTarget = RatingTarget(task: task, completing: false) }
-                            }
-                        )
-                        .swipeActions {
-                            Button(role: .destructive) {
-                                if let id = task.id { tasks.deleteTask(id: id) }
-                            } label: { Label("Delete", systemImage: "trash") }
-                        }
-                    }
-                }
-                .listStyle(.plain)
-
-                Button {
-                    creatingTask = true
-                } label: {
-                    Image(systemName: "plus")
-                        .font(.title2.bold())
-                        .frame(width: 56, height: 56)
-                        .background(Color.blue, in: Circle())
-                        .foregroundStyle(.white)
-                        .shadow(radius: 4)
-                }
-                .padding(24)
+            Group {
+                if mode == .all { allList } else { collectionList }
             }
             .navigationTitle("Tasks")
             .toolbar {
                 ToolbarItem(placement: .principal) {
-                    Picker("", selection: $showCompleted) {
-                        Text("Upcoming (\(upcoming.count))").tag(false)
-                        Text("Completed (\(completed.count))").tag(true)
+                    Picker("Mode", selection: $mode) {
+                        ForEach(Mode.allCases, id: \.self) { Text($0.rawValue).tag($0) }
                     }
                     .pickerStyle(.segmented)
                 }
-            }
-            .sheet(isPresented: $creatingTask) {
-                TaskEditorSheet(task: nil) { tasks.addTask($0) }
-            }
-            .sheet(item: $editingTask) { task in
-                TaskEditorSheet(task: task) { tasks.updateTask($0) }
-            }
-            .sheet(item: $ratingTarget) { target in
-                PerformanceRatingSheet(task: target.task) { rating, notes in
-                    guard let id = target.task.id else { return }
-                    tasks.updateTaskPerformance(id: id, performance: rating, notes: notes)
-                    if target.completing { tasks.completeTask(id: id) }
+                ToolbarItem(placement: .topBarLeading) {
+                    FilterMenu(filter: $filter, tags: allTags, collections: collectionService.collections)
+                }
+                ToolbarItem(placement: .topBarTrailing) { sortMenu }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        if mode == .all { activeSheet = .add(day: nil) } else { creatingCollection = true }
+                    } label: { Image(systemName: "plus") }
+                        .accessibilityIdentifier("addButton")
                 }
             }
-            .alert("Cannot Complete Task", isPresented: $blockedAlert) {
-                Button("OK", role: .cancel) {}
-            } message: {
-                Text("All subtasks must be completed before marking the main task as complete.")
+            .sheet(item: $activeSheet) { $0.view }
+            .alert("New Collection", isPresented: $creatingCollection) {
+                TextField("Name", text: $newCollectionName)
+                Button("Create") {
+                    let name = newCollectionName.trimmingCharacters(in: .whitespaces)
+                    if !name.isEmpty { collectionService.createCollection(name: name) }
+                    newCollectionName = ""
+                }
+                Button("Cancel", role: .cancel) { newCollectionName = "" }
             }
+            .confirmationDialog(
+                pendingDelete.map { "Delete “\($0.title)”?" } ?? "Delete entry?",
+                isPresented: Binding(get: { pendingDelete != nil }, set: { if !$0 { pendingDelete = nil } }),
+                titleVisibility: .visible
+            ) { deleteButtons }
         }
     }
 
-    private func toggleCompletion(_ task: Task) {
-        guard let id = task.id else { return }
-        if task.isCompleted {
-            tasks.uncompleteTask(id: id)
-        } else {
-            if task.subTasks.contains(where: { !$0.isCompleted }) {
-                blockedAlert = true
-            } else {
-                ratingTarget = RatingTarget(task: task, completing: true)
+    private var sortMenu: some View {
+        Menu {
+            Picker("Sort", selection: $sort) {
+                Text("Time ↑").tag(EntrySortOrder.timeAscending)
+                Text("Time ↓").tag(EntrySortOrder.timeDescending)
+                Text("A–Z").tag(EntrySortOrder.alphabetical)
+            }
+        } label: { Image(systemName: "arrow.up.arrow.down") }
+    }
+
+    // MARK: - All entries
+
+    private var allList: some View {
+        List {
+            if visibleEntries.isEmpty {
+                Text("No entries").foregroundStyle(.secondary)
+            }
+            ForEach(visibleEntries) { entry in
+                entryRow(entry)
             }
         }
+        .listStyle(.plain)
+        .contentMargins(.top, 12, for: .scrollContent)
     }
-}
 
-/// A task card showing checkbox, title, ratings, meta, and subtask preview.
-private struct TaskCard: View {
-    let task: Task
-    let preferences: PerformancePreferencesService
-    let onToggleComplete: () -> Void
-    let onToggleSubTask: (SubTask) -> Void
-    let onEdit: () -> Void
-    let onEditRating: () -> Void
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(alignment: .top) {
-                Button(action: onToggleComplete) {
-                    Image(systemName: task.isCompleted ? "checkmark.square.fill" : "square")
-                        .foregroundStyle(.blue)
-                }
-                .buttonStyle(.plain)
-
-                Button(action: onEdit) {
-                    Text(task.title)
-                        .font(.headline)
-                        .strikethrough(task.isCompleted)
-                        .foregroundStyle(task.isCompleted ? .secondary : .primary)
-                }
-                .buttonStyle(.plain)
-
-                Spacer()
-                VStack(alignment: .trailing) {
-                    Text("Priority: \(task.priorityRating)").font(.caption2).foregroundStyle(.secondary)
-                    Text("Performance: \(task.performanceRating)/100").font(.caption2).foregroundStyle(.secondary)
-                }
+    private func entryRow(_ entry: Entry) -> some View {
+        EntryRow(entry: entry, onToggleComplete: { toggle(entry) })
+            .contentShape(Rectangle())
+            .onTapGesture { activeSheet = .edit(entry) }
+            .contextMenu {
+                Button("Edit") { activeSheet = .edit(entry) }
+                if entry.isCompleted { Button("Edit Completion") { activeSheet = .edit(entry) } }
             }
-
-            if let notes = task.notes, !notes.isEmpty {
-                Text(notes).font(.caption).italic().foregroundStyle(.secondary)
+            .swipeActions {
+                Button(role: .destructive) { pendingDelete = entry } label: { Label("Delete", systemImage: "trash") }
             }
+    }
 
-            Text("Created: \(DateTimeUtilities.shortDate(task.createDate)) | Deadline: \(DateTimeUtilities.formatDeadline(task.deadline, hasTime: task.hasDeadlineTime))")
-                .font(.caption2).foregroundStyle(.secondary)
+    // MARK: - By collection
 
-            if let types = task.types, !types.isEmpty {
-                HStack {
-                    ForEach(types, id: \.self) { type in
-                        Text(type)
-                            .font(.caption2)
-                            .padding(.horizontal, 8).padding(.vertical, 3)
-                            .background(Color.blue.opacity(0.15), in: Capsule())
-                            .foregroundStyle(.blue)
-                    }
-                }
-            }
-
-            if !task.subTasks.isEmpty {
-                Divider()
-                Text("Subtasks (\(task.subTasks.count))").font(.caption2.bold()).foregroundStyle(.secondary)
-                ForEach(task.subTasks.prefix(2)) { sub in
-                    HStack {
-                        Button { onToggleSubTask(sub) } label: {
-                            Image(systemName: sub.isCompleted ? "checkmark.square.fill" : "square")
-                                .foregroundStyle(.blue).font(.caption)
+    private var collectionList: some View {
+        List {
+            Section {
+                ForEach(collectionService.collections) { collection in
+                    NavigationLink {
+                        CollectionDetailView(collectionId: collection.id)
+                    } label: {
+                        HStack {
+                            Image(systemName: collection.ordering == .ordered ? "list.number" : "square.grid.2x2")
+                            Text(collection.name)
+                            Spacer()
+                            Text("\(collection.memberIds.count)").foregroundStyle(.secondary)
                         }
-                        .buttonStyle(.plain)
-                        Text("• \(sub.title)")
-                            .font(.caption)
-                            .strikethrough(sub.isCompleted)
-                            .foregroundStyle(sub.isCompleted ? .secondary : .primary)
                     }
                 }
-                if task.subTasks.count > 2 {
-                    Text("+\(task.subTasks.count - 2) more").font(.caption2).italic().foregroundStyle(.secondary)
+                .onDelete { indexSet in
+                    for i in indexSet { collectionService.deleteCollection(id: collectionService.collections[i].id) }
                 }
-            }
+            } header: { Text("Collections") }
 
-            if let completedAt = task.completedAt {
-                Text("Completed: \(DateTimeUtilities.shortDate(completedAt))")
-                    .font(.caption2).italic().foregroundStyle(.secondary)
-                if let pnotes = task.performanceNotes, !pnotes.isEmpty {
-                    Text("Performance Notes: \(pnotes)").font(.caption2).italic().foregroundStyle(.secondary)
+            if !ungrouped.isEmpty {
+                Section("Ungrouped") {
+                    ForEach(ungrouped) { entryRow($0) }
                 }
             }
         }
-        .padding(.vertical, 4)
-        .contextMenu {
-            Button { onEdit() } label: { Label("Edit", systemImage: "pencil") }
-            if task.isCompleted {
-                Button { onEditRating() } label: { Label("Edit Rating", systemImage: "star") }
+    }
+
+    // MARK: - Actions
+
+    @ViewBuilder private var deleteButtons: some View {
+        if let entry = pendingDelete {
+            if entry.isSeriesMember {
+                Button("Delete This", role: .destructive) { seriesService.delete(entry, scope: .thisOnly); pendingDelete = nil }
+                Button("Delete This & Future", role: .destructive) { seriesService.delete(entry, scope: .thisAndFuture); pendingDelete = nil }
+                Button("Delete All in Series", role: .destructive) { seriesService.delete(entry, scope: .all); pendingDelete = nil }
+            } else {
+                Button("Delete", role: .destructive) { entryService.deleteEntry(id: entry.id); pendingDelete = nil }
             }
+            Button("Cancel", role: .cancel) { pendingDelete = nil }
+        }
+    }
+
+    private func toggle(_ entry: Entry) {
+        if entry.isCompleted {
+            entryService.uncompleteEntry(id: entry.id)
+        } else {
+            activeSheet = .complete(entry)
         }
     }
 }

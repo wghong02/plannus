@@ -1,23 +1,36 @@
 import SwiftUI
 
-/// Bottom tab bar with the app's four destinations (FUNCTIONALITY.md §1).
+/// Bottom tab bar with the app's four destinations (DESIGN.md §1, v2). Tab
+/// selection is driven by ``NotificationRouter`` so a tapped reminder can jump to
+/// the Calendar (D9.4). The first-run walkthrough (D13) covers the app once.
 struct RootView: View {
-    let database: SwiftDataDatabase
+    let database: EntryDatabase
+
+    @EnvironmentObject private var router: NotificationRouter
+    @AppStorage(onboardingSeenKey) private var onboardingSeen = false
+    @State private var showOnboarding = false
 
     var body: some View {
-        TabView {
+        TabView(selection: $router.selectedTab) {
             CalendarView()
-                .tabItem { Label("Calendar", systemImage: "calendar") }
-
+                .tabItem { Label("Calendar", systemImage: "calendar") }.tag(0)
             TaskListView()
-                .tabItem { Label("Tasks", systemImage: "list.bullet") }
-
+                .tabItem { Label("Tasks", systemImage: "list.bullet") }.tag(1)
             PerformanceView()
-                .tabItem { Label("Performance", systemImage: "chart.bar") }
-
+                .tabItem { Label("Performance", systemImage: "chart.bar") }.tag(2)
             SettingsView(database: database)
-                .tabItem { Label("Settings", systemImage: "gearshape") }
+                .tabItem { Label("Settings", systemImage: "gearshape") }.tag(3)
         }
         .tint(.blue)
+        // Bind the cover to real @State so dismissal is reliable; persist the flag.
+        .fullScreenCover(isPresented: $showOnboarding) {
+            OnboardingView {
+                OnboardingGate.markSeen()
+                onboardingSeen = true
+                showOnboarding = false
+            }
+        }
+        .onAppear { showOnboarding = OnboardingGate.shouldShow() }
+        .onChange(of: onboardingSeen) { _, seen in showOnboarding = !seen }
     }
 }

@@ -54,17 +54,6 @@ public enum DateTimeUtilities {
         return "\(dateDisplay) at \(tf.string(from: deadline))"
     }
 
-    // MARK: - Queries
-
-    /// Incomplete tasks whose deadline falls on the same day as `targetDate`
-    /// (FUNCTIONALITY.md §5).
-    public static func incompleteTasks(_ tasks: [Task], forDate targetDate: Date) -> [Task] {
-        tasks.filter { task in
-            guard task.completedAt == nil else { return false }
-            return gregorian.isDate(task.deadline, inSameDayAs: targetDate)
-        }
-    }
-
     // MARK: - Helpers
 
     private static func dateBySetting(day: Date, hour: Int, minute: Int, second: Int) -> Date {

@@ -1,116 +1,103 @@
 import SwiftUI
 
-/// Calendar tab: native graphical calendar + per-date list of events and the
-/// incomplete tasks due that day (FUNCTIONALITY.md §6).
+/// Calendar tab (DESIGN.md §6, v2). A day picker drives the per-day entry list
+/// from ``CalendarGrouping`` — completed entries render below incomplete ones,
+/// and swipe-delete removes the whole entry behind a confirmation (a calendar row
+/// is the entry, not just its appearance on that day).
 struct CalendarView: View {
-    @EnvironmentObject private var events: EventService
-    @EnvironmentObject private var tasks: TaskService
+    @EnvironmentObject private var entryService: EntryService
+    @EnvironmentObject private var collectionService: CollectionService
+    @EnvironmentObject private var seriesService: SeriesService
+    @EnvironmentObject private var router: NotificationRouter
 
-    @State private var selectedDate = Date()
-    @State private var editingEvent: EventTarget?
+    @State private var selectedDay = Calendar.current.startOfDay(for: Date())
+    @State private var filter = EntryFilter.none
+    @State private var activeSheet: EntrySheet?
+    @State private var pendingDelete: Entry?
 
-    private struct EventTarget: Identifiable {
-        let id = UUID()
-        let event: Event?
+    private var dayEntries: [Entry] {
+        let filtered = EntryQuery.filter(entryService.entries, with: filter)
+        return CalendarGrouping.entries(filtered, on: selectedDay)
     }
 
-    private var dayEvents: [Event] { events.events(on: selectedDate) }
-    private var incompleteTasks: [Task] {
-        DateTimeUtilities.incompleteTasks(tasks.tasks, forDate: selectedDate)
+    private var allTags: [String] {
+        Array(Set(entryService.entries.flatMap(\.types))).sorted()
     }
 
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                DatePicker("Date", selection: $selectedDate, displayedComponents: .date)
+                DatePicker("", selection: $selectedDay, displayedComponents: [.date])
                     .datePickerStyle(.graphical)
+                    .labelsHidden()
                     .padding(.horizontal)
 
-                Divider()
-
                 List {
-                    Section("Events & Tasks for \(DateTimeUtilities.shortDate(selectedDate))") {
-                        if dayEvents.isEmpty && incompleteTasks.isEmpty {
-                            Text("No events or tasks yet")
-                                .italic().foregroundStyle(.secondary)
-                        }
-                        ForEach(dayEvents) { event in
-                            EventRow(event: event)
-                                .contentShape(Rectangle())
-                                .onTapGesture { editingEvent = EventTarget(event: event) }
-                                .swipeActions {
-                                    Button(role: .destructive) {
-                                        events.deleteEvent(date: selectedDate, id: event.id)
-                                    } label: { Label("Delete", systemImage: "trash") }
-                                }
-                        }
-                        ForEach(incompleteTasks) { task in
-                            CalendarTaskRow(task: task)
-                        }
+                    if dayEntries.isEmpty {
+                        Text("No entries for this day")
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .center)
+                            .listRowSeparator(.hidden)
+                    }
+                    ForEach(dayEntries) { entry in
+                        EntryRow(entry: entry, onToggleComplete: { toggle(entry) })
+                            .contentShape(Rectangle())
+                            .onTapGesture { activeSheet = .edit(entry) }
+                            .swipeActions {
+                                Button(role: .destructive) { pendingDelete = entry } label: { Label("Delete", systemImage: "trash") }
+                            }
                     }
                 }
-                .listStyle(.insetGrouped)
+                .listStyle(.plain)
             }
             .navigationTitle("Calendar")
             .toolbar {
-                ToolbarItem(placement: .primaryAction) {
-                    Button {
-                        editingEvent = EventTarget(event: nil)
-                    } label: { Label("Add Event", systemImage: "plus") }
+                ToolbarItem(placement: .topBarLeading) {
+                    FilterMenu(filter: $filter, tags: allTags, collections: collectionService.collections)
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button { activeSheet = .add(day: selectedDay) } label: { Image(systemName: "plus") }
+                        .accessibilityIdentifier("addButton")
                 }
             }
-            .sheet(item: $editingEvent) { target in
-                EventEditorSheet(event: target.event) { result in
-                    if let existing = target.event {
-                        var updated = result; updated.id = existing.id
-                        events.updateEvent(date: selectedDate, event: updated)
-                    } else {
-                        events.addEvent(date: selectedDate, event: result)
-                    }
+            .sheet(item: $activeSheet) { $0.view }
+            .onChange(of: router.pendingCalendarDate) { _, date in
+                // A tapped reminder deep-links here to the entry's day (D9.4).
+                if let date {
+                    selectedDay = Calendar.current.startOfDay(for: date)
+                    router.pendingCalendarDate = nil
                 }
             }
-        }
-    }
-}
-
-/// An event row: title + start/end time.
-private struct EventRow: View {
-    let event: Event
-    var body: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(event.title).font(.subheadline.bold())
-                if event.allDay {
-                    Text("All day").font(.caption).foregroundStyle(.secondary)
-                }
-            }
-            Spacer()
-            VStack(alignment: .trailing) {
-                if let start = event.startTime {
-                    Text(start.formatted(date: .omitted, time: .shortened)).font(.caption.bold())
-                }
-                if let end = event.endTime {
-                    Text(end.formatted(date: .omitted, time: .shortened)).font(.caption).foregroundStyle(.secondary)
-                }
+            .confirmationDialog(
+                pendingDelete.map { "Delete “\($0.title)”?" } ?? "Delete entry?",
+                isPresented: Binding(get: { pendingDelete != nil }, set: { if !$0 { pendingDelete = nil } }),
+                titleVisibility: .visible
+            ) {
+                deleteButtons
+            } message: {
+                Text("This removes the entry from every day and collection.")
             }
         }
     }
-}
 
-/// A read-only task row shown on the calendar (distinct styling).
-private struct CalendarTaskRow: View {
-    let task: Task
-    var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(task.title).font(.subheadline.bold())
-            Text("Deadline: \(DateTimeUtilities.formatDeadline(task.deadline, hasTime: task.hasDeadlineTime))")
-                .font(.caption).foregroundStyle(.red)
-            if let notes = task.notes, !notes.isEmpty {
-                Text(notes).font(.caption).foregroundStyle(.secondary)
+    @ViewBuilder private var deleteButtons: some View {
+        if let entry = pendingDelete {
+            if entry.isSeriesMember {
+                Button("Delete This", role: .destructive) { seriesService.delete(entry, scope: .thisOnly); pendingDelete = nil }
+                Button("Delete This & Future", role: .destructive) { seriesService.delete(entry, scope: .thisAndFuture); pendingDelete = nil }
+                Button("Delete All in Series", role: .destructive) { seriesService.delete(entry, scope: .all); pendingDelete = nil }
+            } else {
+                Button("Delete", role: .destructive) { entryService.deleteEntry(id: entry.id); pendingDelete = nil }
             }
-            Text("Priority: \(task.priorityRating)")
-                .font(.caption.bold()).foregroundStyle(.blue)
+            Button("Cancel", role: .cancel) { pendingDelete = nil }
         }
-        .listRowBackground(Color.yellow.opacity(0.2))
+    }
+
+    private func toggle(_ entry: Entry) {
+        if entry.isCompleted {
+            entryService.uncompleteEntry(id: entry.id)
+        } else {
+            activeSheet = .complete(entry)
+        }
     }
 }
