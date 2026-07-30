@@ -8,16 +8,17 @@ struct EntryRow: View {
     var onToggleComplete: (() -> Void)?
 
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 14) {
             if entry.isCompletable, let toggle = onToggleComplete {
                 Button(action: toggle) {
                     Image(systemName: entry.isCompleted ? "checkmark.circle.fill" : "circle")
+                        .font(.title3)
                         .foregroundStyle(entry.isCompleted ? Color.accentColor : Color.secondary)
                 }
                 .buttonStyle(.plain)
                 .accessibilityIdentifier("completeToggle")
             }
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 5) {
                 Text(entry.title)
                     .strikethrough(entry.isCompleted)
                 Text(Self.subtitle(entry))
@@ -32,6 +33,7 @@ struct EntryRow: View {
                 Text("\(r)").font(.caption2).foregroundStyle(.secondary)
             }
         }
+        .padding(.vertical, 6)
         .opacity(entry.isCompleted ? 0.6 : 1)
     }
 

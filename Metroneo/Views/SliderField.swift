@@ -17,8 +17,8 @@ struct SliderField: View {
                 TextField("", text: $text)
                     .keyboardType(.numberPad)
                     .multilineTextAlignment(.trailing)
-                    .frame(width: 52)
-                    .textFieldStyle(.roundedBorder)
+                    .frame(width: 44)
+                    .foregroundStyle(.secondary)
                     .onChange(of: text) { _, newValue in
                         if let clamped = Self.clamp(newValue) { value = clamped }
                     }

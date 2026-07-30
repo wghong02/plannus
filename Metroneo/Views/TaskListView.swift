@@ -94,6 +94,7 @@ struct TaskListView: View {
             }
         }
         .listStyle(.plain)
+        .contentMargins(.top, 12, for: .scrollContent)
     }
 
     private func entryRow(_ entry: Entry) -> some View {
