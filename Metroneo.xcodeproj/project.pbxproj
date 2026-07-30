@@ -7,6 +7,13 @@
 	objects = {
 
 /* Begin PBXContainerItemProxy section */
+		1A000000000000000000000A1 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 1A00000000000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 1A00000000000000000000010;
+			remoteInfo = Metroneo;
+		};
 		1A00000000000000000000A0 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 1A00000000000000000000001 /* Project object */;
@@ -19,6 +26,7 @@
 /* Begin PBXFileReference section */
 		1A00000000000000000000011 /* Metroneo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Metroneo.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		1A00000000000000000000031 /* MetroneoTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MetroneoTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		1A00000000000000000000051 /* MetroneoUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MetroneoUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -30,6 +38,11 @@
 		1A00000000000000000000038 /* MetroneoTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = MetroneoTests;
+			sourceTree = "<group>";
+		};
+		1A00000000000000000000058 /* MetroneoUITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = MetroneoUITests;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -49,6 +62,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		1A00000000000000000000053 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -57,6 +77,7 @@
 			children = (
 				1A00000000000000000000018 /* Metroneo */,
 				1A00000000000000000000038 /* MetroneoTests */,
+				1A00000000000000000000058 /* MetroneoUITests */,
 				1A00000000000000000000003 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -66,6 +87,7 @@
 			children = (
 				1A00000000000000000000011 /* Metroneo.app */,
 				1A00000000000000000000031 /* MetroneoTests.xctest */,
+				1A00000000000000000000051 /* MetroneoUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -118,6 +140,29 @@
 			productReference = 1A00000000000000000000031 /* MetroneoTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
+		1A00000000000000000000050 /* MetroneoUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 1A00000000000000000000055 /* Build configuration list for PBXNativeTarget "MetroneoUITests" */;
+			buildPhases = (
+				1A00000000000000000000052 /* Sources */,
+				1A00000000000000000000053 /* Frameworks */,
+				1A00000000000000000000054 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				1A00000000000000000000059 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				1A00000000000000000000058 /* MetroneoUITests */,
+			);
+			name = MetroneoUITests;
+			packageProductDependencies = (
+			);
+			productName = MetroneoUITests;
+			productReference = 1A00000000000000000000051 /* MetroneoUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -132,6 +177,10 @@
 						CreatedOnToolsVersion = 16.0;
 					};
 					1A00000000000000000000030 = {
+						CreatedOnToolsVersion = 16.0;
+						TestTargetID = 1A00000000000000000000010;
+					};
+					1A00000000000000000000050 = {
 						CreatedOnToolsVersion = 16.0;
 						TestTargetID = 1A00000000000000000000010;
 					};
@@ -153,6 +202,7 @@
 			targets = (
 				1A00000000000000000000010 /* Metroneo */,
 				1A00000000000000000000030 /* MetroneoTests */,
+				1A00000000000000000000050 /* MetroneoUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -166,6 +216,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		1A00000000000000000000034 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1A00000000000000000000054 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -189,6 +246,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		1A00000000000000000000052 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -196,6 +260,11 @@
 			isa = PBXTargetDependency;
 			target = 1A00000000000000000000010 /* Metroneo */;
 			targetProxy = 1A00000000000000000000A0 /* PBXContainerItemProxy */;
+		};
+		1A00000000000000000000059 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 1A00000000000000000000010 /* Metroneo */;
+			targetProxy = 1A000000000000000000000A1 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -401,6 +470,40 @@
 			};
 			name = Release;
 		};
+		1A00000000000000000000056 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.gladiolus.MetroneoUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = Metroneo;
+			};
+			name = Debug;
+		};
+		1A00000000000000000000057 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.gladiolus.MetroneoUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = Metroneo;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -427,6 +530,15 @@
 			buildConfigurations = (
 				1A00000000000000000000036 /* Debug */,
 				1A00000000000000000000037 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		1A00000000000000000000055 /* Build configuration list for PBXNativeTarget "MetroneoUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1A00000000000000000000056 /* Debug */,
+				1A00000000000000000000057 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

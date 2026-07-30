@@ -18,9 +18,7 @@ struct CollectionDetailView: View {
 
     private var members: [Entry] {
         guard let collection else { return [] }
-        let byId = Dictionary(entryService.entries.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
-        let resolved = collection.memberIds.compactMap { byId[$0] }
-        return collection.ordering == .ordered ? resolved : EntryQuery.sort(resolved, by: .timeAscending)
+        return CollectionMembers.resolve(collection, from: entryService.entries, sort: .timeAscending)
     }
 
     var body: some View {

@@ -20,9 +20,7 @@ struct SliderField: View {
                     .frame(width: 52)
                     .textFieldStyle(.roundedBorder)
                     .onChange(of: text) { _, newValue in
-                        // Non-numeric/blank → keep the current value (D11.2).
-                        guard let parsed = Int(newValue) else { return }
-                        value = min(100, max(0, parsed))
+                        if let clamped = Self.clamp(newValue) { value = clamped }
                     }
             }
             Slider(
@@ -34,5 +32,12 @@ struct SliderField: View {
         .onChange(of: value) { _, newValue in
             if Int(text) != newValue { text = String(newValue) }
         }
+    }
+
+    /// Parses typed input for the field (D11.2): clamps a number to 0–100, or
+    /// returns `nil` for non-numeric/blank input (caller keeps the current value).
+    static func clamp(_ text: String) -> Int? {
+        guard let parsed = Int(text) else { return nil }
+        return min(100, max(0, parsed))
     }
 }

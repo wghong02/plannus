@@ -76,3 +76,14 @@ public enum EntryQuery {
         return a.id < b.id
     }
 }
+
+/// Resolves a collection's members to display order (D5.5): an **ordered**
+/// collection uses its `memberIds` sequence; a **parallel** one uses the active
+/// D7 sort. Missing ids (deleted entries) are dropped.
+public enum CollectionMembers {
+    public static func resolve(_ collection: EntryCollection, from entries: [Entry], sort: EntrySortOrder) -> [Entry] {
+        let byId = Dictionary(entries.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+        let resolved = collection.memberIds.compactMap { byId[$0] }
+        return collection.ordering == .ordered ? resolved : EntryQuery.sort(resolved, by: sort)
+    }
+}

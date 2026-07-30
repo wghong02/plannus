@@ -145,4 +145,12 @@ public struct Entry: Codable, Identifiable, Equatable, Hashable, Sendable {
 
     /// Recurrence provenance (D15): part of a generated series.
     public var isSeriesMember: Bool { seriesId != nil }
+
+    /// Estimate-vs-actual delta in minutes when both durations are present (D14.3):
+    /// positive = over the estimate, negative = under. `nil` if either is missing.
+    /// Display-only — it affects nothing else (D14.4).
+    public var durationDeltaMinutes: Int? {
+        guard let estimated = estimatedDuration, let actual = actualDuration else { return nil }
+        return actual - estimated
+    }
 }

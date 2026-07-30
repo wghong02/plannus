@@ -675,9 +675,10 @@ reminders · `CLR` level colors · `LBL` level labels · `TRND` overall-trend ·
 integration (store/`UserDefaults`) · **(v)** view logic — **unit-after-extraction**: the assertion
 is pure logic (default/enable predicate, sort/filter application, routing target, regeneration,
 reset) that currently lives in a `View`; it becomes **(u)** once pulled into a helper/view-model
-per the *Extract view logic* rework task — so v2 targets **no XCUITest** (build these
-view-model-backed). Purely cosmetic details (exact toolbar corner, pixel layout) are not test
-assertions. This covers **`PREF-UI` and every `(v)` row** below.
+per the *Extract view logic* rework task — so v2 keeps XCUITest to a **thin smoke layer**
+(a `MetroneoUITests` target covers only what can't be unit-tested — cover dismissal, tab render;
+see the *UI smoke* table). Purely cosmetic details (exact toolbar corner, pixel layout) are not
+test assertions. This covers **`PREF-UI` and every `(v)` row** below.
 
 ### D1 — per-entity persistence
 | ID | Tag | Assertion (given → when → then) | Covers |
@@ -791,6 +792,14 @@ assertions. This covers **`PREF-UI` and every `(v)` row** below.
 | SER-08 | v/i | edit/delete scope: **This** detaches (clears `seriesId`/`occurrenceIndex`, touches only it); **This-and-future** regenerates from this index forward (earlier untouched); **All** edits template + regenerates whole; delete mirrors | D15.6 |
 | SER-09 | i | reminders are per occurrence; regeneration re-arms affected future ones, cancels removed | D15.7 |
 | SER-10 | i | `Series` is a per-entity record; series-delete removes members object-by-object then the row; an empty series is pruned | D15.8 |
+
+### UI smoke (`MetroneoUITests` — XCUITest)
+The thin XCUITest layer for behaviors that genuinely need a running app (not unit-extractable).
+Tag **(x)** = XCUITest.
+| ID | Tag | Assertion | Covers |
+| --- | --- | --- | --- |
+| UITEST-01 | x | launch → the four tabs (Calendar/Tasks/Performance/Settings) render and navigate | §1 |
+| UITEST-02 | x | first-run onboarding appears and **Skip dismisses** it to the tabs | D13.1/D13.2 |
 
 ### Existing tests to invert / retire when v2 lands
 Called out by the *Ripple* lines above — track so they aren't missed:
