@@ -47,9 +47,11 @@ public struct EntryCollection: Codable, Identifiable, Equatable, Hashable, Senda
         memberIds.removeAll { $0 == entryId }
     }
 
-    /// Reorders an **ordered** collection in one write (D5.2). Indices are clamped;
-    /// out-of-range is a no-op.
+    /// Reorders an **ordered** collection in one write (D5.2). An out-of-range
+    /// source index or destination is a no-op (`Array.move` would otherwise trap).
     public mutating func moveMember(fromOffsets: IndexSet, toOffset: Int) {
+        guard fromOffsets.allSatisfy({ memberIds.indices.contains($0) }),
+              (0...memberIds.count).contains(toOffset) else { return }
         memberIds.move(fromOffsets: fromOffsets, toOffset: toOffset)
     }
 

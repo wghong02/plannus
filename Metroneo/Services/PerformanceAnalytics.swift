@@ -159,6 +159,30 @@ public enum PerformanceAnalytics {
         }
     }
 
+    /// Rated entries whose placement date falls in the selected period, newest
+    /// first, capped at `limit` — the population behind the "Recent" list, scoped
+    /// to the same window the stats/charts use (so "in this period" is honest).
+    /// `.allTime` returns every rated entry.
+    public static func windowedRated(
+        _ entries: [Entry],
+        period: PerformancePeriod,
+        customStart: Date? = nil,
+        now: Date = Date(),
+        limit: Int = 10
+    ) -> [Entry] {
+        let (start, end) = dateRange(for: period, customStart: customStart, now: now)
+        func placement(_ e: Entry) -> Date? { e.completion?.completedAt ?? e.timeKey }
+        return entries
+            .filter { $0.rating?.performanceRating != nil }
+            .filter { entry in
+                guard let d = placement(entry) else { return false }
+                return d >= start && d <= end
+            }
+            .sorted { (placement($0) ?? .distantPast) > (placement($1) ?? .distantPast) }
+            .prefix(limit)
+            .map { $0 }
+    }
+
     /// Average performance across the given tasks (0 if empty).
     public static func average(_ tasks: [RatedSample]) -> Double {
         guard !tasks.isEmpty else { return 0 }

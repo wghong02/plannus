@@ -70,10 +70,17 @@ public final class SeriesService: ObservableObject {
 
     // MARK: - Edit (D15.6)
 
-    public func edit(_ edited: Entry, scope: SeriesScope) {
+    /// Applies an edit at the chosen scope and returns the id of the entry that
+    /// now represents the edited occurrence — the caller re-attaches collection
+    /// membership to it (D5). For `.all`/`.thisAndFuture` the original occurrence
+    /// is deleted and regenerated with a fresh id, so returning the survivor is
+    /// what keeps membership from landing on a deleted id. `nil` only if the
+    /// survivor can't be located.
+    @discardableResult
+    public func edit(_ edited: Entry, scope: SeriesScope) -> String? {
         guard let seriesId = edited.seriesId else {
             entries.upsertEntry(edited)
-            return
+            return edited.id
         }
         switch scope {
         case .thisOnly:
@@ -83,22 +90,26 @@ public final class SeriesService: ObservableObject {
             detached.occurrenceIndex = nil
             entries.upsertEntry(detached)
             pruneIfEmpty(seriesId)
+            return detached.id
 
         case .all:
             guard var current = series.first(where: { $0.id == seriesId }) else {
                 entries.upsertEntry(edited)
-                return
+                return edited.id
             }
             // Propagate the edited shared fields onto the template, keeping the
             // template's own date pattern; then regenerate every occurrence.
             current.template = mergedTemplate(base: current.template, edits: edited)
             persist(current)
             regenerate(current)
+            // The regenerated occurrence at the same index is the survivor.
+            let index = edited.occurrenceIndex ?? 0
+            return occurrences(of: seriesId).first { ($0.occurrenceIndex ?? 0) == index }?.id
 
         case .thisAndFuture:
             guard let current = series.first(where: { $0.id == seriesId }) else {
                 entries.upsertEntry(edited)
-                return
+                return edited.id
             }
             let fromIndex = edited.occurrenceIndex ?? 0
             let remaining = occurrences(of: seriesId).filter { ($0.occurrenceIndex ?? 0) >= fromIndex }.count
@@ -114,8 +125,10 @@ public final class SeriesService: ObservableObject {
                 interval: current.rule.interval,
                 end: .afterCount(max(1, remaining))
             )
-            _ = createSeries(template: newTemplate, rule: newRule)
+            let newSeries = createSeries(template: newTemplate, rule: newRule)
             pruneIfEmpty(seriesId)
+            // The edited occurrence becomes occurrence 0 of the new series.
+            return occurrences(of: newSeries.id).first { ($0.occurrenceIndex ?? 0) == 0 }?.id
         }
     }
 

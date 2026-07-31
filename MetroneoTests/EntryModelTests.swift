@@ -57,6 +57,14 @@ final class EntryModelTests: XCTestCase {
         XCTAssertEqual(c.memberIds, ["z", "y"])
     }
 
+    func testMoveMemberOutOfRangeIsNoOp() { // spec: COL-01 (guarded reorder)
+        var c = EntryCollection(name: "A", ordering: .ordered, memberIds: ["x", "y"])
+        c.moveMember(fromOffsets: IndexSet(integer: 5), toOffset: 0) // bad source
+        XCTAssertEqual(c.memberIds, ["x", "y"], "out-of-range source is a no-op, not a trap")
+        c.moveMember(fromOffsets: IndexSet(integer: 0), toOffset: 9) // bad destination
+        XCTAssertEqual(c.memberIds, ["x", "y"], "out-of-range destination is a no-op")
+    }
+
     func testColorHexRoundTripAndContrast() { // spec: CLR-01, CLR-03
         let parsed = ColorHex.parse("#1B5E20FF")
         XCTAssertNotNil(parsed)

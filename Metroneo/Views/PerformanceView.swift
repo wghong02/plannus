@@ -17,19 +17,33 @@ struct PerformanceView: View {
     @State private var filter = EntryFilter.none
     @State private var selectedPeriod: String?
 
-    private var scopedEntries: [Entry] { EntryQuery.filter(entryService.entries, with: filter) }
-    private var samples: [RatedSample] { PerformanceAnalytics.samples(from: scopedEntries) }
-    private var series: [PerformanceDataPoint] {
-        PerformanceAnalytics.trendSeries(samples, period: period, cutoffs: prefs.cutoffs, customStart: customStart)
+    /// All the period-scoped analytics the body needs, computed **once** per
+    /// render (see `computeDerived`) so the trend pipeline and its inputs aren't
+    /// rebuilt on every sub-view access.
+    private struct Derived {
+        let series: [PerformanceDataPoint]
+        let windowSamples: [RatedSample]
+        let granularity: PerformanceGranularity
+        let recent: [Entry]
+
+        /// At least one bucket has entries (empty ⇒ the placeholder message).
+        var hasData: Bool { !series.allSatisfy { $0.taskCount == 0 } }
+        /// Rotate x labels vertical once the axis gets crowded (D16.6).
+        var verticalXLabels: Bool { series.count > 8 }
+        var periods: [String] { series.map(\.period) }
     }
-    private var windowSamples: [RatedSample] {
-        PerformanceAnalytics.filteredTasks(samples, period: period, customStart: customStart)
+
+    private func computeDerived() -> Derived {
+        let scoped = EntryQuery.filter(entryService.entries, with: filter)
+        let samples = PerformanceAnalytics.samples(from: scoped)
+        return Derived(
+            series: PerformanceAnalytics.trendSeries(samples, period: period, cutoffs: prefs.cutoffs, customStart: customStart),
+            windowSamples: PerformanceAnalytics.filteredTasks(samples, period: period, customStart: customStart),
+            granularity: PerformanceAnalytics.granularity(for: period, tasks: samples, customStart: customStart),
+            recent: PerformanceAnalytics.windowedRated(scoped, period: period, customStart: customStart)
+        )
     }
-    private var granularity: PerformanceGranularity {
-        PerformanceAnalytics.granularity(for: period, tasks: samples, customStart: customStart)
-    }
-    /// Rotate x labels vertical once the axis gets crowded (D16.6).
-    private var verticalXLabels: Bool { series.count > 8 }
+
     /// Rating thresholds drawn as reference lines (D16.2).
     private var cutoffLines: [Int] {
         let c = prefs.cutoffs
@@ -38,22 +52,23 @@ struct PerformanceView: View {
     private var allTags: [String] { Array(Set(entryService.entries.flatMap(\.types))).sorted() }
 
     var body: some View {
+        let d = computeDerived()
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     periodSelector
 
                     HStack {
-                        statCard("Rated", "\(windowSamples.count)")
-                        statCard("Average", String(format: "%.1f", PerformanceAnalytics.average(windowSamples)))
+                        statCard("Rated", "\(d.windowSamples.count)")
+                        statCard("Average", String(format: "%.1f", PerformanceAnalytics.average(d.windowSamples)))
                     }
 
                     Divider()
 
                     Text("Trends").font(.title3.bold())
-                    trendCard
-                    insights
-                    recentList
+                    trendCard(d)
+                    insights(d)
+                    recentList(d)
                 }
                 .padding()
             }
@@ -77,6 +92,7 @@ struct PerformanceView: View {
             if period == .custom {
                 DatePicker("Start date", selection: $customStart, in: ...Date(), displayedComponents: .date)
                     .padding(.top, 12)
+                    .accessibilityIdentifier("customStartPicker")
             }
         }
     }
@@ -93,18 +109,18 @@ struct PerformanceView: View {
 
     // MARK: - Trend card (D16)
 
-    private var trendCard: some View {
+    private func trendCard(_ d: Derived) -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            if series.allSatisfy({ $0.taskCount == 0 }) {
+            if !d.hasData {
                 Text("No rated entries in this period")
                     .font(.subheadline).foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, minHeight: 120)
             } else {
-                Text("\(granularity.label) Performance").font(.headline)
-                performanceChart
+                Text("\(d.granularity.label) Performance").font(.headline)
+                performanceChart(d.series, verticalXLabels: d.verticalXLabels)
 
                 Text("Rated Entries").font(.headline).padding(.top, 8)
-                distributionChart
+                distributionChart(d.series, verticalXLabels: d.verticalXLabels)
 
                 legend
             }
@@ -115,9 +131,11 @@ struct PerformanceView: View {
     }
 
     /// Top plot: average line (0–100) with dashed cutoff reference lines (D16.1/2/5).
-    private var performanceChart: some View {
+    private func performanceChart(_ series: [PerformanceDataPoint], verticalXLabels: Bool) -> some View {
         Chart {
-            ForEach(cutoffLines, id: \.self) { threshold in
+            // `enumerated` ids avoid a duplicate-id ForEach when two cutoffs coincide
+            // (the editor permits equal thresholds).
+            ForEach(Array(cutoffLines.enumerated()), id: \.offset) { _, threshold in
                 RuleMark(y: .value("Cutoff", Double(threshold)))
                     .foregroundStyle(custom.color(for: prefs.level(for: threshold)).opacity(0.55))
                     .lineStyle(StrokeStyle(lineWidth: 1.6, dash: [5, 3]))
@@ -130,7 +148,10 @@ struct PerformanceView: View {
                     .symbolSize(25)
                     .foregroundStyle(custom.color(for: prefs.level(for: Int(point.average))))
             }
-            if let selectedPeriod, let point = series.first(where: { $0.period == selectedPeriod }) {
+            // Callout only over buckets that actually have data — never an empty
+            // bucket (which would read as a real "Avg 0").
+            if let selectedPeriod,
+               let point = series.first(where: { $0.period == selectedPeriod && $0.taskCount > 0 }) {
                 RuleMark(x: .value("Period", selectedPeriod))
                     .foregroundStyle(.gray.opacity(0.4))
                     .annotation(position: .top, spacing: 4,
@@ -142,14 +163,14 @@ struct PerformanceView: View {
         .chartYScale(domain: 0...100)
         .chartXScale(domain: series.map(\.period))
         .chartXSelection(value: $selectedPeriod)
-        .chartXAxis { crowdAwareXLabels }
+        .chartXAxis { crowdAwareXLabels(verticalXLabels) }
         .chartYAxis { AxisMarks(position: .leading) { yLabel($0.as(Double.self).map { Int($0) }) } }
         .chartPlotStyle { edgedPlot($0) }
         .frame(height: 170)
     }
 
     /// Bottom plot: entry count per bucket, stacked by performance category (D16.3).
-    private var distributionChart: some View {
+    private func distributionChart(_ series: [PerformanceDataPoint], verticalXLabels: Bool) -> some View {
         Chart {
             ForEach(series, id: \.period) { point in
                 ForEach(point.levelCounts, id: \.level) { lc in
@@ -161,17 +182,17 @@ struct PerformanceView: View {
             }
         }
         .chartXScale(domain: series.map(\.period))
-        .chartXAxis { crowdAwareXLabels }
+        .chartXAxis { crowdAwareXLabels(verticalXLabels) }
         .chartYAxis { AxisMarks(position: .leading) { yLabel($0.as(Int.self)) } }
         .chartPlotStyle { edgedPlot($0) }
         .frame(height: 110)
     }
 
-    private var crowdAwareXLabels: some AxisContent {
+    private func crowdAwareXLabels(_ vertical: Bool) -> some AxisContent {
         AxisMarks {
             AxisValueLabel(
-                orientation: verticalXLabels ? .vertical : .automatic,
-                verticalSpacing: verticalXLabels ? 8 : nil
+                orientation: vertical ? .vertical : .automatic,
+                verticalSpacing: vertical ? 8 : nil
             )
         }
     }
@@ -220,13 +241,13 @@ struct PerformanceView: View {
 
     // MARK: - Insights + recent
 
-    private var insights: some View {
+    private func insights(_ d: Derived) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Performance Insights").font(.headline)
             HStack {
-                insightItem("Best Period", PerformanceAnalytics.best(series)?.period ?? "N/A")
-                insightItem("Overall Trend", overallTrendText())
-                insightItem("Best Rating", windowSamples.map(\.performanceRating).max().map { "\($0)" } ?? "N/A")
+                insightItem("Best Period", PerformanceAnalytics.best(d.series)?.period ?? "N/A")
+                insightItem("Overall Trend", overallTrendText(d.series))
+                insightItem("Best Rating", d.windowSamples.map(\.performanceRating).max().map { "\($0)" } ?? "N/A")
             }
         }
         .padding()
@@ -242,15 +263,14 @@ struct PerformanceView: View {
         .frame(maxWidth: .infinity)
     }
 
-    private var recentList: some View {
+    private func recentList(_ d: Derived) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Recent Performance").font(.title3.bold())
-            let recent = recentRated()
-            if recent.isEmpty {
+            if d.recent.isEmpty {
                 Text("Nothing rated in this period yet. Complete and rate entries to see your performance data.")
                     .font(.subheadline).foregroundStyle(.secondary).padding()
             } else {
-                ForEach(recent) { entry in recentRow(entry) }
+                ForEach(d.recent) { entry in recentRow(entry) }
             }
         }
     }
@@ -280,7 +300,7 @@ struct PerformanceView: View {
             .foregroundStyle(custom.textColor(for: level))
     }
 
-    private func overallTrendText() -> String {
+    private func overallTrendText(_ series: [PerformanceDataPoint]) -> String {
         let nonEmpty = series.filter { $0.taskCount > 0 }
         guard nonEmpty.count > 1, let first = nonEmpty.first, let last = nonEmpty.last else {
             return custom.trendLabel(\.na)
@@ -293,13 +313,5 @@ struct PerformanceView: View {
         case .declining: return custom.trendLabel(\.declining)
         case .neutral: return custom.trendLabel(\.neutral)
         }
-    }
-
-    private func recentRated() -> [Entry] {
-        scopedEntries
-            .filter(\.isRated)
-            .sorted { ($0.completion?.completedAt ?? $0.timeKey ?? .distantPast) > ($1.completion?.completedAt ?? $1.timeKey ?? .distantPast) }
-            .prefix(10)
-            .map { $0 }
     }
 }

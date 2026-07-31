@@ -139,4 +139,21 @@ final class MetroneoUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Excellent"].exists, "legend uses custom level labels")
         XCTAssertTrue(app.staticTexts["Poor"].exists)
     }
+
+    @MainActor
+    func testPerformanceCustomPeriodRevealsStartPicker() throws {
+        let app = XCUIApplication()
+        app.launchArguments += ["-SEED-PERF", "-@onboarding_seen", "YES"]
+        app.launch()
+        tab(app, "Performance")
+
+        XCTAssertTrue(app.staticTexts["Trends"].waitForExistence(timeout: 5))
+        // The custom start-date picker is hidden until the Custom period is chosen.
+        let picker = app.descendants(matching: .any)["customStartPicker"]
+        XCTAssertFalse(picker.exists, "start-date picker is hidden for non-custom periods")
+
+        app.buttons["Custom"].tap()
+        XCTAssertTrue(picker.waitForExistence(timeout: 5),
+                      "choosing Custom reveals the start-date picker")
+    }
 }

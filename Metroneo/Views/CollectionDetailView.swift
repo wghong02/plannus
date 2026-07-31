@@ -57,7 +57,13 @@ struct CollectionDetailView: View {
     }
 
     private func move(from source: IndexSet, to destination: Int) {
-        collectionService.reorder(collectionId: collectionId, fromOffsets: source, toOffset: destination)
+        // `source`/`destination` index the displayed rows (`members`), which can
+        // differ from raw `memberIds` when ids resolve to no live entry. Reorder
+        // the visible id sequence and persist that, so the stored order matches
+        // what the user dragged (and any dangling ids are dropped).
+        var ids = members.map(\.id)
+        ids.move(fromOffsets: source, toOffset: destination)
+        collectionService.setMembers(collectionId: collectionId, ids: ids)
     }
 
     private func remove(at offsets: IndexSet) {

@@ -10,6 +10,9 @@ let onboardingSeenKey = "@onboarding_seen"
 struct SettingsView: View {
     let database: EntryDatabase
 
+    @EnvironmentObject private var entryService: EntryService
+    @EnvironmentObject private var collectionService: CollectionService
+    @EnvironmentObject private var seriesService: SeriesService
     @AppStorage(onboardingSeenKey) private var onboardingSeen = false
     @State private var alert: SettingsAlert?
 
@@ -46,6 +49,11 @@ struct SettingsView: View {
                     }
                     Button("Erase All Data", role: .destructive) {
                         try? database.reset()
+                        // Refresh the in-memory caches so the UI doesn't keep
+                        // showing (and re-persisting) the erased rows.
+                        entryService.loadEntries()
+                        collectionService.loadCollections()
+                        seriesService.loadSeries()
                         alert = SettingsAlert(title: "Success", message: "All data has been cleared.")
                     }
                 }

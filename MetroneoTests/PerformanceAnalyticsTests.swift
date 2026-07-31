@@ -139,4 +139,36 @@ final class PerformanceAnalyticsTests: XCTestCase {
         XCTAssertEqual(PerformanceAnalytics.granularity(for: .custom, customStart: day("2026-04-01"), now: now), .biweekly)
         XCTAssertEqual(PerformanceAnalytics.granularity(for: .custom, customStart: day("2026-01-01"), now: now), .monthly)
     }
+
+    // MARK: - Recent list scoping (windowedRated)
+
+    private func ratedEntry(_ rating: Int, _ completedKey: String) -> Entry {
+        Entry(title: completedKey, completion: Completion(completedAt: day(completedKey)), rating: Rating(performanceRating: rating))
+    }
+
+    func testWindowedRatedScopesToSelectedPeriod() {
+        let now = day("2026-07-22")
+        let entries = [
+            ratedEntry(90, "2026-07-20"),   // in week + month
+            ratedEntry(70, "2026-07-01"),   // in month, not week
+            ratedEntry(50, "2026-01-01"),   // older than both
+            Entry(title: "unrated", completion: Completion(completedAt: day("2026-07-21")), rating: nil),
+        ]
+        XCTAssertEqual(PerformanceAnalytics.windowedRated(entries, period: .week, now: now).map(\.title),
+                       ["2026-07-20"], "week keeps only in-week rated entries")
+        XCTAssertEqual(PerformanceAnalytics.windowedRated(entries, period: .month, now: now).map(\.title),
+                       ["2026-07-20", "2026-07-01"], "month is newest-first and in-window")
+        XCTAssertEqual(PerformanceAnalytics.windowedRated(entries, period: .allTime, now: now).map(\.title),
+                       ["2026-07-20", "2026-07-01", "2026-01-01"], "allTime keeps every rated entry; unrated excluded")
+    }
+
+    func testWindowedRatedRespectsLimit() {
+        let now = day("2026-07-22")
+        let entries = (1...15).map { i in
+            Entry(title: "e\(i)",
+                  completion: Completion(completedAt: Calendar.current.date(byAdding: .day, value: -i, to: now)!),
+                  rating: Rating(performanceRating: 60))
+        }
+        XCTAssertEqual(PerformanceAnalytics.windowedRated(entries, period: .allTime, now: now, limit: 5).count, 5)
+    }
 }

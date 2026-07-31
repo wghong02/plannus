@@ -106,6 +106,30 @@ final class EntryStoreTests: XCTestCase {
         XCTAssertEqual(entries.loadEntries().count, 1, "member entries survive collection delete")
     }
 
+    /// The detail view reorders by the *displayed* id sequence (which drops ids
+    /// that resolve to no live entry), so an ordered collection with a dangling id
+    /// reorders correctly instead of moving the wrong element (D5.2 / D5.5).
+    func testReorderFollowsDisplayedOrderAndDropsDanglingIds() { // spec: COL-01, D5.5
+        let db = makeDB()
+        let entries = EntryService(db: db)
+        let cols = CollectionService(db: db)
+        let b = Entry(title: "B"); let c = Entry(title: "C")
+        entries.upsertEntry(b); entries.upsertEntry(c)
+        let coll = cols.createCollection(name: "Ordered", ordering: .ordered)
+        cols.setMembers(collectionId: coll.id, ids: ["ghost", b.id, c.id]) // "ghost" is dangling
+
+        let collection = cols.collections.first { $0.id == coll.id }!
+        var displayed = CollectionMembers.resolve(collection, from: entries.entries, sort: .timeAscending).map(\.id)
+        XCTAssertEqual(displayed, [b.id, c.id], "the dangling id isn't shown")
+
+        // Mirror CollectionDetailView.move: reorder the visible ids, then persist.
+        displayed.move(fromOffsets: IndexSet(integer: 0), toOffset: 2) // B after C
+        cols.setMembers(collectionId: coll.id, ids: displayed)
+
+        XCTAssertEqual(cols.collections.first { $0.id == coll.id }!.memberIds, [c.id, b.id],
+                       "stored order matches the drag; the dangling id is gone")
+    }
+
     // MARK: - SeriesService
 
     func testCreateSeriesIndependentOccurrencesAndDeleteAll() { // spec: SER-06, SER-10
