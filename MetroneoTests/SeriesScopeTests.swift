@@ -100,6 +100,7 @@ final class SeriesScopeTests: XCTestCase {
         let entries = EntryService(db: db)
         let series = SeriesService(db: db, entries: entries)
         let cols = CollectionService(db: db)
+        entries.deletionObserver = cols // central cache coherence, as at bootstrap
         let template = Entry(title: "Standup", deadline: Deadline(date: day("2026-07-20")))
         let s = series.createSeries(template: template, rule: RecurrenceRule(frequency: .daily, interval: 1, end: .afterCount(3)))
 
@@ -111,8 +112,8 @@ final class SeriesScopeTests: XCTestCase {
         edited.title = "Renamed"
         let survivor = series.edit(edited, scope: .all)
 
-        // Mirror the editor: refresh the cache after the regenerate, then sync.
-        cols.loadCollections()
+        // The regenerate's deletes prune occ1 from the cache centrally — no manual
+        // reload — so syncing the survivor mirrors the editor exactly.
         let survivorId = survivor!
         cols.addMember(collectionId: collection.id, entryId: survivorId)
 

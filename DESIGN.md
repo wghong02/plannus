@@ -220,6 +220,11 @@ A mutation writes **only the affected entry**, not the whole set.
 - **D1.5** — every mutation updates the observable in-memory state **in place** *and* persists the
   one entity, so the **UI reflects the change immediately** (reactivity via `@Published`/
   Observation; in-memory copy = source of truth for views, store for durability).
+- **D1.6** — **cross-service coherence:** when a write's per-entity reconciliation touches a
+  *different* service's cache, that cache is updated in place too — never left stale. Concretely,
+  `deleteEntry` drops the id from every collection in the store (D5.6); `EntryService` notifies
+  the collection cache (`EntryDeletionObserver`, wired at bootstrap §10) to prune the same id in
+  memory, so no dangling member id survives and no full reload is needed.
 
 *Supersedes* the whole-set replace ([DB-01]).
 
@@ -266,7 +271,9 @@ Collection { id, name, ordering: .ordered | .parallel, memberIds: [EntryId] }
 - **D5.2** — **order lives on the collection (Option B):** an entry's position = its index in
   that collection's `memberIds`; reorder is **one write**. No per-entry `order`. *(Option A — an
   `order` int on the entry — was rejected: an M2M entry needs a different position per collection,
-  which one integer can't hold.)*
+  which one integer can't hold.)* A drag-reorder persists the **displayed** id sequence (which
+  omits any id that resolves to no live entry), so the stored order always matches what the user
+  sees — indices are never mapped back onto the raw `memberIds`.
 - **D5.3** — membership is the collection's `memberIds` (single source of truth); "which
   collections is entry X in" is derived, with **no back-reference** on the entry.
 - **D5.4** — a collection is a **grouping, not a completable super-entry**: no completion gating.
@@ -276,8 +283,10 @@ Collection { id, name, ordering: .ordered | .parallel, memberIds: [EntryId] }
   for parallel ones `memberIds` is just the membership set. *(Testable: reordering the D7 sort
   reorders a parallel collection's rows but leaves an ordered collection's rows fixed.)*
 - **D5.6** — **deletion:** remove-from-collection drops the id from that collection's `memberIds`
-  (entry survives); delete-entry drops it from **every** collection's `memberIds` then deletes it;
-  delete-collection removes the grouping only (member entries survive; nothing cascades).
+  (entry survives); delete-entry drops it from **every** collection's `memberIds` then deletes it —
+  in the store *and*, via the deletion observer (D1.6), in the collection cache, so neither can
+  keep a dangling member id; delete-collection removes the grouping only (member entries survive;
+  nothing cascades).
 - **D5.7** — *side effect:* former subtasks become first-class entries — a rated one counts in
   analytics ([PA-02]/[PA-06]) and a dated one shows on the Calendar ([DTU-07]); today they're
   invisible to both.
@@ -574,6 +583,10 @@ occurrenceIndex: Int?      // 0-based position within the series (the "series nu
   `seriesId`/`occurrenceIndex`) and touches only it; *This-and-future* rewrites the template and
   **regenerates** occurrences from this index forward (earlier occurrences untouched); *All* edits
   the template and regenerates the whole series. **Delete** mirrors the three scopes.
+  Because *This-and-future* and *All* delete the edited occurrence and regenerate it under a fresh
+  id, `edit(_:scope:)` **returns the surviving occurrence's id** (the same-index regenerated one, or
+  the new series' occurrence 0), and the editor re-attaches collection membership to *that* id — so
+  membership follows the occurrence across a regenerate instead of stranding on the deleted id.
 - **D15.7** — **reminders (D9)** are per occurrence — each generated entry schedules its own off
   its own time key; regenerating (D15.6) re-arms the affected future occurrences and cancels
   removed ones.
@@ -605,15 +618,24 @@ The Performance tab renders two stacked **Swift Charts** plots over the existing
 - **D16.4 — Shared category legend** (Excellent → Poor) beneath the plots, using the **custom labels
   (D8) + custom colors (D10)**.
 - **D16.5 — Interaction:** `.chartXSelection` on the top plot drops a `RuleMark(x:)` at the selected
-  bucket with a callout annotation (period · avg · task count) — tap/drag to inspect.
+  bucket with a callout annotation (period · avg · task count) — tap/drag to inspect. The callout
+  appears **only over a bucket that has data** (`taskCount > 0`); selecting an empty bucket shows
+  nothing, so an empty span never reads as a real "avg 0".
 - **D16.6 — Axes:** Y axis leading with **fixed-width labels** so both plots' plot areas line up;
   X-axis labels **rotate vertical once there are > 8 buckets**; plot styled with left + bottom edge
   lines and no interior grid.
 
+- **D16.7 — Period-scoped surfaces:** the stat cards, both plots, and the **Recent** list all read
+  the **selected period** (Week / Month / 3 Months / Year / All Time / **Custom**, whose start-date
+  picker appears only for Custom). The Recent list uses the same window as the stats — so its "in
+  this period" copy is honest — and the whole period-derived set (`series`, window samples,
+  granularity, recent) is computed **once per render** and threaded into the sub-views, not
+  recomputed per accessor.
+
 *Shipped:* `PerformanceView` renders both plots (ported from the pre-rebuild chart view,
 `git show 881a5d6:Metroneo/Views/PerformanceView.swift`) onto the entry / `RatedSample` series with
-the custom labels/colors; chart rendering is covered by `UITEST-08`. *(Was `[PV-03]`/`[PV-04]`/
-`[PV-06]` in the retired FUNCTIONALITY.md.)*
+the custom labels/colors; chart rendering is covered by `UITEST-08` and the Custom-period picker by
+`UITEST-09`. *(Was `[PV-03]`/`[PV-04]`/`[PV-06]` in the retired FUNCTIONALITY.md.)*
 
 ---
 
@@ -739,11 +761,14 @@ test assertions. This covers **`PREF-UI` and every `(v)` row** below.
 | COL-02 | i | M2M: `x` in A@2 and B@0; reordering A leaves x's index in B unchanged | D5.1/D5.2 |
 | COL-03 | u | adding an already-present id is a **no-op** — no duplicate, no reposition | D5.1 |
 | COL-04 | u | ordered position = index in `memberIds`; reorder rewrites the array in **one write** | D5.2 |
+| COL-14 | u | `moveMember` with an out-of-range source/destination is a **no-op** (guarded — `Array.move` would otherwise trap) | D5.2 |
 | COL-05 | u | "which collections is X in" is derived from `memberIds`; entry has **no** back-ref | D5.3 |
 | COL-06 | u | an incomplete-member collection gates nothing — no completion block | D5.4 |
 | COL-07 | u | **ordered** displays `memberIds` order (drag reorders it); **parallel** displays the active D7 sort — changing the sort reorders a parallel collection's rows but **not** an ordered one's | D5.5 |
 | COL-08 | i | remove-from-collection drops the id from **that** collection only; entry + other collections keep it | D5.6 |
 | COL-09 | i | `deleteEntry(x)` drops x from **every** collection's `memberIds`, then deletes x | D5.6 |
+| COL-12 | i | with the deletion observer wired, `deleteEntry(x)` also prunes x from the **collection cache** in place (store + cache agree; no dangling id, no reload) | D1.6/D5.6 |
+| COL-13 | i | a drag-reorder persists the **displayed** id order and drops any id that resolves to no live entry (never maps display indices onto raw `memberIds`) | D5.2/D5.5 |
 | COL-10 | i | delete-collection removes the grouping only; member entries survive; nothing cascades | D5.6 |
 | COL-11 | i | a former-subtask is now a first-class entry — a rated one counts in analytics, and a dated one shows on the calendar | D5.7 |
 
@@ -825,6 +850,7 @@ test assertions. This covers **`PREF-UI` and every `(v)` row** below.
 | SER-08 | v/i | edit/delete scope: **This** detaches (clears `seriesId`/`occurrenceIndex`, touches only it); **This-and-future** regenerates from this index forward (earlier untouched); **All** edits template + regenerates whole; delete mirrors | D15.6 |
 | SER-09 | i | reminders are per occurrence; regeneration re-arms affected future ones, cancels removed | D15.7 |
 | SER-10 | i | `Series` is a per-entity record; series-delete removes members object-by-object then the row; an empty series is pruned | D15.8 |
+| SER-11 | i | `edit(_:scope:)` returns the **surviving occurrence id** (This → same id; This-and-future → new series' occ 0; All → same-index regenerated) — a live entry, never the deleted one — so membership re-attaches to it | D15.6 |
 
 ### UI flows (`MetroneoUITests` — XCUITest)
 End-to-end flows that exercise real wiring unit tests can't reach (create → persist → display),
@@ -842,3 +868,4 @@ Tag **(x)** = XCUITest.
 | UITEST-06 | x | Calendar → **+** → save → the entry lands on the selected day (dated by default) | §6 / D6.5 |
 | UITEST-07 | x | Performance tab renders its stat cards (Rated / Average) | §8 |
 | UITEST-08 | x | with seeded rated data, the Performance **charts** render — trend + distribution sections + the custom-label legend (Excellent…Poor) | D16 |
+| UITEST-09 | x | Performance → the Custom period reveals the start-date picker (hidden for the other periods) | D16.7 |

@@ -307,9 +307,9 @@ struct EntryEditorSheet: View {
             // fresh id, so sync membership onto the survivor edit() reports back —
             // not the (now-deleted) id we edited.
             let survivorId = seriesService.edit(entry, scope: scope)
-            // Those deletes dropped the old ids from collections in the store;
-            // refresh the cache so we don't re-persist a now-dangling member id.
-            collectionService.loadCollections()
+            // Deleted occurrences are pruned from the collection cache centrally
+            // (EntryService.deletionObserver), so membership syncs cleanly onto the
+            // survivor without re-persisting a dangling id.
             syncMembership(for: survivorId ?? entry.id)
             dismiss(); return
         } else if existing == nil, repeats {

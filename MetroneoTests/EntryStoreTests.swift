@@ -106,6 +106,25 @@ final class EntryStoreTests: XCTestCase {
         XCTAssertEqual(entries.loadEntries().count, 1, "member entries survive collection delete")
     }
 
+    /// Deleting an entry must keep the collection cache coherent with the store —
+    /// `EntryDatabase.deleteEntry` drops the id from every collection (D5.6), and
+    /// the deletion observer mirrors that in memory without a reload (D1.5).
+    func testDeletingEntryPrunesCollectionCacheCentrally() { // spec: COL-09, D1.5
+        let db = makeDB()
+        let entries = EntryService(db: db)
+        let cols = CollectionService(db: db)
+        entries.deletionObserver = cols // wired at bootstrap in MetroneoApp
+        let e = Entry(title: "E"); entries.upsertEntry(e)
+        let c = cols.createCollection(name: "C", ordering: .ordered)
+        cols.addMember(collectionId: c.id, entryId: e.id)
+        XCTAssertEqual(cols.collections.first { $0.id == c.id }?.memberIds, [e.id])
+
+        entries.deleteEntry(id: e.id)
+        XCTAssertEqual(cols.collections.first { $0.id == c.id }?.memberIds, [],
+                       "cache pruned in memory; no dangling id and no reload")
+        XCTAssertEqual(try! db.loadCollections().first?.memberIds, [], "store agrees")
+    }
+
     /// The detail view reorders by the *displayed* id sequence (which drops ids
     /// that resolve to no live entry), so an ordered collection with a dangling id
     /// reorders correctly instead of moving the wrong element (D5.2 / D5.5).

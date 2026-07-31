@@ -44,8 +44,12 @@ struct MetroneoApp: App {
         _reminderScheduler = StateObject(wrappedValue: scheduler)
 
         let entries = EntryService(db: db, scheduler: scheduler)
+        let collections = CollectionService(db: db)
+        // Keep the collection cache coherent when an entry is deleted (D1.5/D5.6):
+        // the store drops the id from every collection; this mirrors it in memory.
+        entries.deletionObserver = collections
         _entryService = StateObject(wrappedValue: entries)
-        _collectionService = StateObject(wrappedValue: CollectionService(db: db))
+        _collectionService = StateObject(wrappedValue: collections)
         _seriesService = StateObject(wrappedValue: SeriesService(db: db, entries: entries))
     }
 

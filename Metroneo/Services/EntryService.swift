@@ -1,6 +1,14 @@
 import Foundation
 import Combine
 
+/// Notified when an entry is deleted so **derived caches stay coherent** without
+/// a reload (D1.5). `EntryDatabase.deleteEntry` drops the id from every
+/// collection in the *store* (D5.6); the observer mirrors that in the in-memory
+/// caches that hold the same membership (e.g. ``CollectionService``).
+public protocol EntryDeletionObserver: AnyObject {
+    func entryDeleted(id: String)
+}
+
 /// Observable entry cache backed by an ``EntryDatabase`` (DESIGN.md D1/D6).
 ///
 /// Every mutation is a **single-entity write** (D1): it updates the in-memory
@@ -14,6 +22,9 @@ public final class EntryService: ObservableObject {
     private let db: EntryDatabase
     /// Optional reminder side-effect hook (D9). `nil` in unit tests.
     private let scheduler: ReminderScheduling?
+    /// Keeps membership-holding caches coherent on delete (D1.5 / D5.6). Weak so
+    /// the observer (a peer service) isn't retained. Wired at bootstrap (§10).
+    public weak var deletionObserver: EntryDeletionObserver?
 
     public init(db: EntryDatabase, scheduler: ReminderScheduling? = nil) {
         self.db = db
@@ -57,6 +68,9 @@ public final class EntryService: ObservableObject {
         }
         entries.removeAll { $0.id == id }
         scheduler?.cancel(entryId: id)
+        // The store dropped this id from every collection (D5.6); mirror that in
+        // the collection cache so no stale/dangling member id survives.
+        deletionObserver?.entryDeleted(id: id)
     }
 
     /// Marks an entry complete (`completedAt = now`). No-op if the entry isn't

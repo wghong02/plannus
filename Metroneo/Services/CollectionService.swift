@@ -6,7 +6,7 @@ import Combine
 /// Membership lives in each collection's `memberIds` (single source of truth,
 /// D5.3); "which collections is entry X in" is **derived** here. Every mutation
 /// is a per-entity write (D1) that updates the observable copy in place.
-public final class CollectionService: ObservableObject {
+public final class CollectionService: ObservableObject, EntryDeletionObserver {
     @Published public private(set) var collections: [EntryCollection] = []
 
     private let db: EntryDatabase
@@ -74,6 +74,18 @@ public final class CollectionService: ObservableObject {
     /// Derived: the collections an entry belongs to (D5.3 — no back-reference).
     public func collections(containing entryId: String) -> [EntryCollection] {
         collections.filter { $0.contains(entryId) }
+    }
+
+    // MARK: - Cross-service coherence (D1.5 / D5.6)
+
+    /// Drops a deleted entry's id from every cached collection. `EntryDatabase`
+    /// already removed it from the store in `deleteEntry`, so this only reconciles
+    /// the in-memory cache — no re-persist — keeping it coherent with the store
+    /// (and free of dangling member ids) without a full reload.
+    public func entryDeleted(id entryId: String) {
+        for index in collections.indices where collections[index].contains(entryId) {
+            collections[index].removeMember(entryId)
+        }
     }
 
     // MARK: - Helpers
