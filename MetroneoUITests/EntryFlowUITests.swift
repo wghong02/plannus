@@ -29,4 +29,20 @@ final class EntryFlowUITests: UITestCase {
         XCTAssertTrue(app.staticTexts["Workout"].waitForExistence(timeout: 5),
                       "the entry remains after completion")
     }
+
+    @MainActor
+    func testUncollectedEntryShowsUnderUngrouped() throws { // spec: UITEST-3.3
+        let app = launch()
+        tab(app, "Tasks")
+        tapAdd(app)
+        fillTitleAndSave(app, "Buy milk")
+        XCTAssertTrue(app.staticTexts["Buy milk"].waitForExistence(timeout: 5))
+
+        // In By-collection mode, an entry that belongs to no collection lists under
+        // the "Ungrouped" pseudo-group (D5.5).
+        app.buttons["Collections"].tap()
+        XCTAssertTrue(app.staticTexts["Ungrouped"].waitForExistence(timeout: 5),
+                      "an entry in no collection appears under the Ungrouped section")
+        XCTAssertTrue(app.staticTexts["Buy milk"].exists, "the ungrouped entry is listed there")
+    }
 }

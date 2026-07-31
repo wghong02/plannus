@@ -90,6 +90,7 @@ struct FilterMenu: View {
         } label: {
             Image(systemName: filter.isActive ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease.circle")
         }
+        .accessibilityIdentifier("filterMenu")
     }
 }
 

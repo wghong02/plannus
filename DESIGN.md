@@ -856,11 +856,12 @@ test assertions. This covers **`PREF-UI` and every `(v)` row** below.
 End-to-end flows that exercise real wiring unit tests can't reach (create → persist → display),
 plus the smoke checks for genuinely un-unit-testable UI. Each flow launches with a clean store
 (`-UITEST-RESET`) and skips onboarding unless it's the subject; controls carry stable
-`accessibilityIdentifier`s (`addButton`, `entryTitleField`, `saveEntryButton`, `completeToggle`).
+`accessibilityIdentifier`s (`addButton`, `entryTitleField`, `saveEntryButton`, `completeToggle`,
+`filterMenu`).
 Tag **(x)** = XCUITest. Grouped **by what they test**, one group per suite file; each suite
 subclasses the shared `UITestCase` (launch + navigation helpers). IDs carry a **category** — the
 leading number is the suite, the trailing one the test within it (`UITEST-<category>.<n>`) — so
-tests on the same UI share a number and stay contiguous. The six categories mirror the
+tests on the same UI share a number and stay contiguous. The seven categories mirror the
 `MetroneoUITests/*.swift` split.
 
 **1 · Launch & navigation** (`SmokeUITests`)
@@ -879,6 +880,7 @@ tests on the same UI share a number and stay contiguous. The six categories mirr
 | --- | --- | --- | --- |
 | UITEST-3.1 | x | Tasks → **+** → type a title → save → the entry **displays** in the list | §7 / D1.5 |
 | UITEST-3.2 | x | complete an entry → the **completion sheet** appears → Done → the entry remains | §7.2 / D6 |
+| UITEST-3.3 | x | Tasks → By-collection → an entry in no collection lists under the **Ungrouped** section | D5.5 |
 
 **4 · Collections** (`CollectionUITests`)
 | ID | Tag | Assertion | Covers |
@@ -896,3 +898,8 @@ tests on the same UI share a number and stay contiguous. The six categories mirr
 | UITEST-6.1 | x | Performance tab renders its stat cards (Rated / Average) | §8 |
 | UITEST-6.2 | x | with seeded rated data, the Performance **charts** render — trend + distribution sections + the custom-label legend (Excellent…Poor) | D16 |
 | UITEST-6.3 | x | Performance → the Custom period reveals the start-date picker (hidden for the other periods) | D16.7 |
+
+**7 · Tasks list — filter** (`TaskListUITests`)
+| ID | Tag | Assertion | Covers |
+| --- | --- | --- | --- |
+| UITEST-7.1 | x | Tasks → the **filter** narrows the list: **Upcoming** hides a completed entry, **Completed** hides an upcoming one | D7.4 |
