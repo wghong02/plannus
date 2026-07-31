@@ -5,7 +5,7 @@ import XCTest
 final class OnboardingUITests: UITestCase {
 
     @MainActor
-    func testOnboardingSkipDismisses() throws { // spec: UITEST-02
+    func testOnboardingSkipDismisses() throws { // spec: UITEST-2.1
         let app = launch(resetStore: false, skipOnboarding: false)
         let skip = app.buttons["Skip"]
         XCTAssertTrue(skip.waitForExistence(timeout: 10), "onboarding should appear on first run")
@@ -15,7 +15,7 @@ final class OnboardingUITests: UITestCase {
     }
 
     @MainActor
-    func testOnboardingNextThroughPagesDismisses() throws { // spec: UITEST-10
+    func testOnboardingNextThroughPagesDismisses() throws { // spec: UITEST-2.2
         let app = launch(resetStore: false, skipOnboarding: false)
         let next = app.buttons["Next"]
         XCTAssertTrue(next.waitForExistence(timeout: 10), "onboarding should appear on first run")

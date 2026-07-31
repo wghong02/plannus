@@ -5,7 +5,7 @@ import XCTest
 final class CollectionUITests: UITestCase {
 
     @MainActor
-    func testCreateCollection() throws { // spec: UITEST-05
+    func testCreateCollection() throws { // spec: UITEST-4.1
         let app = launch()
         tab(app, "Tasks")
         app.buttons["Collections"].tap() // segmented control → By-collection mode

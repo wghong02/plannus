@@ -5,7 +5,7 @@ import XCTest
 final class PerformanceUITests: UITestCase {
 
     @MainActor
-    func testPerformanceScreenRenders() throws { // spec: UITEST-07
+    func testPerformanceScreenRenders() throws { // spec: UITEST-6.1
         let app = launch()
         tab(app, "Performance")
         XCTAssertTrue(app.navigationBars["Performance"].waitForExistence(timeout: 5))
@@ -14,7 +14,7 @@ final class PerformanceUITests: UITestCase {
     }
 
     @MainActor
-    func testPerformanceChartsRender() throws { // spec: UITEST-08
+    func testPerformanceChartsRender() throws { // spec: UITEST-6.2
         let app = launchSeeded() // rated entries across recent weeks so the charts have data
         tab(app, "Performance")
 
@@ -27,7 +27,7 @@ final class PerformanceUITests: UITestCase {
     }
 
     @MainActor
-    func testPerformanceCustomPeriodRevealsStartPicker() throws { // spec: UITEST-09
+    func testPerformanceCustomPeriodRevealsStartPicker() throws { // spec: UITEST-6.3
         let app = launchSeeded()
         tab(app, "Performance")
 

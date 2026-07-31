@@ -5,7 +5,7 @@ import XCTest
 final class SmokeUITests: UITestCase {
 
     @MainActor
-    func testTabsRenderAndNavigate() throws { // spec: UITEST-01
+    func testTabsRenderAndNavigate() throws { // spec: UITEST-1.1
         let app = launch()
         let tabs = app.tabBars.firstMatch
         XCTAssertTrue(tabs.buttons["Calendar"].waitForExistence(timeout: 10))

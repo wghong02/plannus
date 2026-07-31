@@ -634,8 +634,8 @@ The Performance tab renders two stacked **Swift Charts** plots over the existing
 
 *Shipped:* `PerformanceView` renders both plots (ported from the pre-rebuild chart view,
 `git show 881a5d6:Metroneo/Views/PerformanceView.swift`) onto the entry / `RatedSample` series with
-the custom labels/colors; chart rendering is covered by `UITEST-08` and the Custom-period picker by
-`UITEST-09`. *(Was `[PV-03]`/`[PV-04]`/`[PV-06]` in the retired FUNCTIONALITY.md.)*
+the custom labels/colors; chart rendering is covered by `UITEST-6.2` and the Custom-period picker by
+`UITEST-6.3`. *(Was `[PV-03]`/`[PV-04]`/`[PV-06]` in the retired FUNCTIONALITY.md.)*
 
 ---
 
@@ -720,7 +720,7 @@ the custom labels/colors; chart rendering is covered by `UITEST-08` and the Cust
 The tests for each **D-requirement**. The v2 model has **shipped** and most of these rows are
 **implemented and passing** (unit/integration under `MetroneoTests`, the `(x)` flows under
 `MetroneoUITests`); tests cite their row with a `// spec: <ID>` comment. `D16`'s charts are shipped,
-with their rendering covered by the `UITEST-08` flow. This appendix is the traceability map between
+with their rendering covered by the `UITEST-6.2` flow. This appendix is the traceability map between
 the spec and the suite.
 
 **Reserved ID prefixes (new):** `ENT` Entry model/aspects · `EGRP` calendar grouping · `EDB`
@@ -857,16 +857,42 @@ End-to-end flows that exercise real wiring unit tests can't reach (create → pe
 plus the smoke checks for genuinely un-unit-testable UI. Each flow launches with a clean store
 (`-UITEST-RESET`) and skips onboarding unless it's the subject; controls carry stable
 `accessibilityIdentifier`s (`addButton`, `entryTitleField`, `saveEntryButton`, `completeToggle`).
-Tag **(x)** = XCUITest.
+Tag **(x)** = XCUITest. Grouped **by what they test**, one group per suite file; each suite
+subclasses the shared `UITestCase` (launch + navigation helpers). IDs carry a **category** — the
+leading number is the suite, the trailing one the test within it (`UITEST-<category>.<n>`) — so
+tests on the same UI share a number and stay contiguous. The six categories mirror the
+`MetroneoUITests/*.swift` split.
+
+**1 · Launch & navigation** (`SmokeUITests`)
 | ID | Tag | Assertion | Covers |
 | --- | --- | --- | --- |
-| UITEST-01 | x | launch → the four tabs (Calendar/Tasks/Performance/Settings) render and navigate | §1 |
-| UITEST-02 | x | first-run onboarding appears and **Skip dismisses** it to the tabs | D13.1/D13.2 |
-| UITEST-03 | x | Tasks → **+** → type a title → save → the entry **displays** in the list | §7 / D1.5 |
-| UITEST-04 | x | complete an entry → the **completion sheet** appears → Done → the entry remains | §7.2 / D6 |
-| UITEST-05 | x | Tasks → By-collection → **+** → name it → Create → the collection displays | D5 |
-| UITEST-06 | x | Calendar → **+** → save → the entry lands on the selected day (dated by default) | §6 / D6.5 |
-| UITEST-07 | x | Performance tab renders its stat cards (Rated / Average) | §8 |
-| UITEST-08 | x | with seeded rated data, the Performance **charts** render — trend + distribution sections + the custom-label legend (Excellent…Poor) | D16 |
-| UITEST-09 | x | Performance → the Custom period reveals the start-date picker (hidden for the other periods) | D16.7 |
-| UITEST-10 | x | first-run onboarding → paging **Next** through all pages → **Get Started** dismisses it to the tabs | D13.1/D13.2 |
+| UITEST-1.1 | x | launch → the four tabs (Calendar/Tasks/Performance/Settings) render and navigate | §1 |
+
+**2 · Onboarding** (`OnboardingUITests`)
+| ID | Tag | Assertion | Covers |
+| --- | --- | --- | --- |
+| UITEST-2.1 | x | first-run onboarding appears and **Skip dismisses** it to the tabs | D13.1/D13.2 |
+| UITEST-2.2 | x | first-run onboarding → paging **Next** through all pages → **Get Started** dismisses it to the tabs | D13.1/D13.2 |
+
+**3 · Entry create & complete** (`EntryFlowUITests`)
+| ID | Tag | Assertion | Covers |
+| --- | --- | --- | --- |
+| UITEST-3.1 | x | Tasks → **+** → type a title → save → the entry **displays** in the list | §7 / D1.5 |
+| UITEST-3.2 | x | complete an entry → the **completion sheet** appears → Done → the entry remains | §7.2 / D6 |
+
+**4 · Collections** (`CollectionUITests`)
+| ID | Tag | Assertion | Covers |
+| --- | --- | --- | --- |
+| UITEST-4.1 | x | Tasks → By-collection → **+** → name it → Create → the collection displays | D5 |
+
+**5 · Calendar** (`CalendarUITests`)
+| ID | Tag | Assertion | Covers |
+| --- | --- | --- | --- |
+| UITEST-5.1 | x | Calendar → **+** → save → the entry lands on the selected day (dated by default) | §6 / D6.5 |
+
+**6 · Performance** (`PerformanceUITests`)
+| ID | Tag | Assertion | Covers |
+| --- | --- | --- | --- |
+| UITEST-6.1 | x | Performance tab renders its stat cards (Rated / Average) | §8 |
+| UITEST-6.2 | x | with seeded rated data, the Performance **charts** render — trend + distribution sections + the custom-label legend (Excellent…Poor) | D16 |
+| UITEST-6.3 | x | Performance → the Custom period reveals the start-date picker (hidden for the other periods) | D16.7 |

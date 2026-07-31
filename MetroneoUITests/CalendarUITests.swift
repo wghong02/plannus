@@ -5,7 +5,7 @@ import XCTest
 final class CalendarUITests: UITestCase {
 
     @MainActor
-    func testCalendarAddShowsEntryOnDay() throws { // spec: UITEST-06
+    func testCalendarAddShowsEntryOnDay() throws { // spec: UITEST-5.1
         let app = launch()
         // Calendar is the default tab; Add defaults a deadline on the selected (today) day.
         tapAdd(app)
