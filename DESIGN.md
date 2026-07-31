@@ -869,3 +869,4 @@ Tag **(x)** = XCUITest.
 | UITEST-07 | x | Performance tab renders its stat cards (Rated / Average) | §8 |
 | UITEST-08 | x | with seeded rated data, the Performance **charts** render — trend + distribution sections + the custom-label legend (Excellent…Poor) | D16 |
 | UITEST-09 | x | Performance → the Custom period reveals the start-date picker (hidden for the other periods) | D16.7 |
+| UITEST-10 | x | first-run onboarding → paging **Next** through all pages → **Get Started** dismisses it to the tabs | D13.1/D13.2 |
