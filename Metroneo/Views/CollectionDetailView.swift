@@ -44,6 +44,7 @@ struct CollectionDetailView: View {
                         Text("Parallel").tag(CollectionOrdering.parallel)
                     }
                 } label: { Image(systemName: "arrow.up.arrow.down.square") }
+                .accessibilityIdentifier("orderingMenu")
             }
         }
         .sheet(item: $activeSheet) { $0.view }

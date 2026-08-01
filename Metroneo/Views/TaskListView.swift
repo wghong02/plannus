@@ -80,6 +80,7 @@ struct TaskListView: View {
                 Text("A–Z").tag(EntrySortOrder.alphabetical)
             }
         } label: { Image(systemName: "arrow.up.arrow.down") }
+        .accessibilityIdentifier("sortMenu")
     }
 
     // MARK: - All entries

@@ -34,6 +34,7 @@ struct SettingsView: View {
             List {
                 Section("Personal Preferences") {
                     NavigationLink("Performance") { PerformanceCustomizationScreen() }
+                        .accessibilityIdentifier("performanceSettingsLink")
                 }
 
                 Section("Help") {
@@ -96,10 +97,12 @@ struct PerformanceCustomizationScreen: View {
                 ForEach(PerformanceLevel.allCases, id: \.self) { level in
                     VStack(alignment: .leading, spacing: 6) {
                         TextField(level.defaultLabel, text: labelBinding(level))
+                            .accessibilityIdentifier("label-\(level.key)")
                         HStack {
                             Text("Color").font(.caption).foregroundStyle(.secondary)
                             TextField("#RRGGBBAA", text: colorBinding(level))
                                 .font(.caption.monospaced())
+                                .accessibilityIdentifier("color-\(level.key)")
                             RoundedRectangle(cornerRadius: 4)
                                 .fill(custom.color(for: level))
                                 .frame(width: 28, height: 20)
@@ -136,6 +139,7 @@ struct PerformanceCustomizationScreen: View {
             Text(label); Spacer()
             TextField("", value: value, format: .number)
                 .keyboardType(.numberPad).multilineTextAlignment(.trailing).frame(width: 80)
+                .accessibilityIdentifier("cutoff-\(label)")
         }
     }
 

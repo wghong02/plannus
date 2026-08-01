@@ -40,4 +40,28 @@ final class PerformanceUITests: UITestCase {
         XCTAssertTrue(picker.waitForExistence(timeout: 5),
                       "choosing Custom reveals the start-date picker")
     }
+
+    @MainActor
+    func testEmptyStateWhenNothingRated() throws { // spec: UITEST-6.4
+        let app = launch() // clean store, no rated entries
+        tab(app, "Performance")
+        XCTAssertTrue(app.staticTexts["No rated entries in this period"].waitForExistence(timeout: 5),
+                      "the trend card shows the empty state with no data")
+        XCTAssertFalse(app.staticTexts["Rated Entries"].exists, "no distribution section without data")
+    }
+
+    @MainActor
+    func testSwitchingPeriodKeepsChartsRendered() throws { // spec: UITEST-6.5
+        let app = launchSeeded()
+        tab(app, "Performance")
+        XCTAssertTrue(app.staticTexts["Trends"].waitForExistence(timeout: 5))
+
+        // The seed spans the last ~30 days, so Week and All Time both have data.
+        app.buttons["Week"].tap()
+        XCTAssertTrue(app.staticTexts["Rated Entries"].waitForExistence(timeout: 5),
+                      "Week still renders the distribution")
+        app.buttons["All Time"].tap()
+        XCTAssertTrue(app.staticTexts["Rated Entries"].waitForExistence(timeout: 5),
+                      "All Time still renders the distribution")
+    }
 }

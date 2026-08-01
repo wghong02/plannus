@@ -175,12 +175,16 @@ struct EntryEditorSheet: View {
                 Picker("Frequency", selection: $frequency) {
                     ForEach(RecurrenceFrequency.allCases, id: \.self) { Text($0.rawValue.capitalized).tag($0) }
                 }
+                .accessibilityIdentifier("frequencyPicker")
                 Stepper("Every \(interval)", value: $interval, in: 1...52)
+                    .accessibilityIdentifier("intervalStepper")
                 Toggle("End after count", isOn: $endAfterCount)
                 if endAfterCount {
                     Stepper("\(endCount) occurrences", value: $endCount, in: 1...365)
+                        .accessibilityIdentifier("endCountStepper")
                 } else {
                     DatePicker("Until", selection: $endDate, displayedComponents: [.date])
+                        .accessibilityIdentifier("recurrenceUntilPicker")
                 }
             }
         }
@@ -239,6 +243,7 @@ struct EntryEditorSheet: View {
                             HStack(spacing: 4) {
                                 Text(tag)
                                 Button { types.removeAll { $0 == tag } } label: { Image(systemName: "xmark.circle.fill") }
+                                    .accessibilityIdentifier("removeTag-\(tag)")
                             }
                             .padding(.horizontal, 8).padding(.vertical, 4)
                             .background(Color(.tertiarySystemFill), in: Capsule())
@@ -249,6 +254,7 @@ struct EntryEditorSheet: View {
             HStack {
                 TextField("Add tag", text: $newType)
                 Button("Add") { addTag() }.disabled(newType.trimmingCharacters(in: .whitespaces).isEmpty)
+                    .accessibilityIdentifier("addTagButton")
             }
         }
     }
