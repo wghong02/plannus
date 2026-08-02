@@ -38,10 +38,12 @@ final class RecurrenceUITests: UITestCase {
 
         let endAfter = app.switches["End after count"]
         XCTAssertTrue(scrollDownTo(app, endAfter))
-        XCTAssertFalse(app.descendants(matching: .any)["recurrenceUntilPicker"].exists,
-                       "count mode shows no Until picker")
+        // A compact date picker is a `.datePicker` element — query it directly
+        // (an all-descendants query is pathologically slow here).
+        let untilPicker = app.datePickers["recurrenceUntilPicker"]
+        XCTAssertFalse(untilPicker.exists, "count mode shows no Until picker")
         flip(endAfter) // → until-date mode
-        XCTAssertTrue(app.descendants(matching: .any)["recurrenceUntilPicker"].waitForExistence(timeout: 5),
+        XCTAssertTrue(untilPicker.waitForExistence(timeout: 5),
                       "disabling 'End after count' reveals the Until date picker")
         app.buttons["Cancel"].tap()
     }

@@ -857,11 +857,15 @@ End-to-end flows that exercise real wiring unit tests can't reach (create → pe
 plus the smoke checks for genuinely un-unit-testable UI. Each flow launches with a clean store
 (`-UITEST-RESET`) and skips onboarding unless it's the subject; controls carry stable
 `accessibilityIdentifier`s (`addButton`, `entryTitleField`, `saveEntryButton`, `completeToggle`,
-`filterMenu`).
+`filterMenu`, `sortMenu`, `frequencyPicker`/`intervalStepper`/`endCountStepper`/
+`recurrenceUntilPicker`, `addTagButton`/`removeTag-<tag>`, `orderingMenu`, `customStartPicker`,
+`performanceSettingsLink`, `cutoff-<Label>`/`label-<key>`/`color-<key>`). Toggles are flipped by
+tapping the trailing control, and editor sections are configured **before** the title so the
+keyboard never occludes them (see `UITestCase`).
 Tag **(x)** = XCUITest. Grouped **by what they test**, one group per suite file; each suite
 subclasses the shared `UITestCase` (launch + navigation helpers). IDs carry a **category** — the
 leading number is the suite, the trailing one the test within it (`UITEST-<category>.<n>`) — so
-tests on the same UI share a number and stay contiguous. The seven categories mirror the
+tests on the same UI share a number and stay contiguous. The eleven categories mirror the
 `MetroneoUITests/*.swift` split.
 
 **1 · Launch & navigation** (`SmokeUITests`)
@@ -875,22 +879,30 @@ tests on the same UI share a number and stay contiguous. The seven categories mi
 | UITEST-2.1 | x | first-run onboarding appears and **Skip dismisses** it to the tabs | D13.1/D13.2 |
 | UITEST-2.2 | x | first-run onboarding → paging **Next** through all pages → **Get Started** dismisses it to the tabs | D13.1/D13.2 |
 
-**3 · Entry create & complete** (`EntryFlowUITests`)
+**3 · Entry lifecycle** (`EntryFlowUITests`)
 | ID | Tag | Assertion | Covers |
 | --- | --- | --- | --- |
 | UITEST-3.1 | x | Tasks → **+** → type a title → save → the entry **displays** in the list | §7 / D1.5 |
 | UITEST-3.2 | x | complete an entry → the **completion sheet** appears → Done → the entry remains | §7.2 / D6 |
 | UITEST-3.3 | x | Tasks → By-collection → an entry in no collection lists under the **Ungrouped** section | D5.5 |
+| UITEST-3.4 | x | tap a row → editor → rename → save (non-series ⇒ no scope prompt) → the edit shows, the old title is gone | §7.1 / D1.1 |
+| UITEST-3.5 | x | swipe → **Delete** → a **confirmation** action sheet → confirm → the entry is gone | §7 / D5.6 |
+| UITEST-3.6 | x | complete then **uncomplete** (a completed toggle needs no sheet) → it returns to the Upcoming filter | D6.3 |
 
 **4 · Collections** (`CollectionUITests`)
 | ID | Tag | Assertion | Covers |
 | --- | --- | --- | --- |
 | UITEST-4.1 | x | Tasks → By-collection → **+** → name it → Create → the collection displays | D5 |
+| UITEST-4.2 | x | add an entry to a collection via the editor → it lists in the collection detail → swipe-remove drops it (entry survives) | D5.1/D5.6 |
+| UITEST-4.3 | x | an empty collection shows its placeholder, and the **ordering** menu offers Ordered/Parallel | D5.5 |
 
 **5 · Calendar** (`CalendarUITests`)
 | ID | Tag | Assertion | Covers |
 | --- | --- | --- | --- |
 | UITEST-5.1 | x | Calendar → **+** → save → the entry lands on the selected day (dated by default) | §6 / D6.5 |
+| UITEST-5.2 | x | a day with no entries shows the **empty-day** placeholder | §6 |
+| UITEST-5.3 | x | complete from the calendar → completion sheet → Done → the entry stays on its day | §6 / D6.3 |
+| UITEST-5.4 | x | swipe → Delete → confirmation → the entry is removed from the day | §6 / D5.6 |
 
 **6 · Performance** (`PerformanceUITests`)
 | ID | Tag | Assertion | Covers |
@@ -898,8 +910,42 @@ tests on the same UI share a number and stay contiguous. The seven categories mi
 | UITEST-6.1 | x | Performance tab renders its stat cards (Rated / Average) | §8 |
 | UITEST-6.2 | x | with seeded rated data, the Performance **charts** render — trend + distribution sections + the custom-label legend (Excellent…Poor) | D16 |
 | UITEST-6.3 | x | Performance → the Custom period reveals the start-date picker (hidden for the other periods) | D16.7 |
+| UITEST-6.4 | x | with no rated data, the trend card shows the **empty state** and no distribution section | D16.7 |
+| UITEST-6.5 | x | switching period (Week / All Time) keeps the charts rendered with the seeded data | D16.7 |
 
-**7 · Tasks list — filter** (`TaskListUITests`)
+**7 · Tasks list — sort & filter** (`TaskListUITests`)
 | ID | Tag | Assertion | Covers |
 | --- | --- | --- | --- |
-| UITEST-7.1 | x | Tasks → the **filter** narrows the list: **Upcoming** hides a completed entry, **Completed** hides an upcoming one | D7.4 |
+| UITEST-7.1 | x | Tasks → the completion **filter** narrows the list: **Upcoming** hides a completed entry, **Completed** hides an upcoming one | D7.4 |
+| UITEST-7.2 | x | the **A–Z sort** orders rows alphabetically (Apple above Zebra) | D7.3 |
+| UITEST-7.3 | x | the **collection** filter facet shows only that collection's members | D7.4 |
+
+**8 · Entry editor fields** (`EditorUITests`)
+| ID | Tag | Assertion | Covers |
+| --- | --- | --- | --- |
+| UITEST-8.1 | x | enabling **Scheduled** reveals **All Day**; saving an all-day entry shows the "All day" subtitle | D6.5 |
+| UITEST-8.2 | x | enabling **Deadline** → the saved entry shows a "Due …" subtitle | D6.5 |
+| UITEST-8.3 | x | turning **Completable** off → the entry shows **no** complete toggle | D6.3 |
+| UITEST-8.4 | x | add a **tag** chip and remove it in the editor | D4 |
+
+**9 · Recurrence** (`RecurrenceUITests`)
+| ID | Tag | Assertion | Covers |
+| --- | --- | --- | --- |
+| UITEST-9.1 | x | enable **Repeats** → save → the default afterCount(5) generates **five** occurrences | D15.2 |
+| UITEST-9.2 | x | disabling **End after count** reveals the **Until** date picker | D15.1 |
+| UITEST-9.3 | x | edit an occurrence → **All in Series** → every occurrence takes the change | D15.6 |
+| UITEST-9.4 | x | edit an occurrence → **This Entry** → only that one changes; the rest are untouched | D15.6 |
+
+**10 · Settings — performance customization** (`SettingsUITests`)
+| ID | Tag | Assertion | Covers |
+| --- | --- | --- | --- |
+| UITEST-10.1 | x | rename a level **label**; **Reset to Defaults** restores the built-in label | D8.2/D8.3 |
+| UITEST-10.2 | x | a decreasing **cutoff** is rejected with the "Invalid Cutoffs" alert | D12 / SET-03 |
+
+**11 · Completion sheet** (`CompletionUITests`)
+| ID | Tag | Assertion | Covers |
+| --- | --- | --- | --- |
+| UITEST-11.1 | x | complete **with** a rating (default on) → the row shows the rating badge | §7.2 / D6.3 |
+| UITEST-11.2 | x | complete **without** a rating (toggle off) → the row shows **no** rating | §7.2 / D6.3 |
+| UITEST-11.3 | x | **Cancel** the completion sheet → the entry stays incomplete (the toggle reopens the sheet) | §7.2 |
+| UITEST-11.4 | x | complete + rate → the entry surfaces in **Recent Performance** | D6.7 → D16 |
