@@ -34,6 +34,15 @@ public enum DateTimeUtilities {
 
     // MARK: - Display
 
+    /// A duration in minutes as a compact `"Xh Ym"` / `"Xh"` / `"Xm"` label
+    /// (e.g. 45 → "45m", 60 → "1h", 90 → "1h 30m"). Used by the D17 time bars.
+    public static func formatDuration(_ minutes: Int) -> String {
+        let m = max(0, minutes)
+        if m < 60 { return "\(m)m" }
+        let hours = m / 60, mins = m % 60
+        return mins == 0 ? "\(hours)h" : "\(hours)h \(mins)m"
+    }
+
     /// Localized short date (like JS `toLocaleDateString`).
     public static func shortDate(_ date: Date, locale: Locale = .current) -> String {
         let df = DateFormatter()

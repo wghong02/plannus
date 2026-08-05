@@ -640,6 +640,25 @@ The Performance tab renders two stacked **Swift Charts** plots over the existing
 the custom labels/colors; chart rendering is covered by `UITEST-6.2` and the Custom-period picker by
 `UITEST-6.3`. *(Was `[PV-03]`/`[PV-04]`/`[PV-06]` in the retired FUNCTIONALITY.md.)*
 
+### D17 — Estimated vs Actual time bars · agreed (shipped) · depends: D14, D16
+The Performance tab adds a **time-tracking** card beneath the trend/distribution charts: a simple
+**two-bar** chart comparing **total estimated** vs **total actual** minutes.
+
+- **D17.1 — Population:** entries that recorded **both** an `estimatedDuration` and an
+  `actualDuration` (D14) — i.e. completed entries that were estimated. Entries missing either are
+  excluded.
+- **D17.2 — Scope:** the **same window** as the rest of the tab (the selected period + the leading
+  tag/collection filter), placed by `completedAt` (else time key). `PerformanceAnalytics.durationTotals`
+  returns the summed estimated/actual minutes and the entry `count`.
+- **D17.3 — Chart:** two `BarMark`s — "Estimated" and "Actual" — each annotated with a compact
+  duration label (`DateTimeUtilities.formatDuration`: 90 → "1h 30m"). Shown **only** when
+  `count > 0`; otherwise the card is hidden (no empty state).
+- **D17.4 — Not rating-gated:** unlike the trend/distribution (rated entries, D6.7), this counts any
+  entry with both durations regardless of rating — duration and rating are independent (D14.4/D6.3).
+
+*Shipped:* `durationTotals` + the `durationCard` in `PerformanceView`; covered by `DUR-01`/`DUR-02`,
+the `D17` integration test, and `UITEST-6.6`. *New capability.*
+
 ---
 
 ## Rework tasks
@@ -840,6 +859,8 @@ test assertions. This covers **`PREF-UI` and every `(v)` row** below.
 | DUR-02 | v | completion sheet's actualDuration field defaults to `estimatedDuration`, **blank when it's nil** (stays nil if untouched) | D14.2 |
 | DUR-03 | u | both present → estimate-vs-actual delta (est 30, act 45 → "+15 min") | D14.3 |
 | DUR-04 | u | durations affect nothing — scheduling/analytics/completion unchanged when they vary | D14.4 |
+| DUR-05 | i | `durationTotals` sums estimated & actual over entries with **both** durations in the selected period; excludes estimate-only / actual-only / out-of-window; empty when none qualify | D17.1/D17.2 |
+| DUR-06 | u | `formatDuration` renders minutes compactly (45→"45m", 60→"1h", 90→"1h 30m"; negatives→"0m") | D17.3 |
 
 ### D15 — recurring series
 | ID | Tag | Assertion | Covers |
@@ -916,6 +937,7 @@ tests on the same UI share a number and stay contiguous. The eleven categories m
 | UITEST-6.3 | x | Performance → the Custom period reveals the start-date picker (hidden for the other periods) | D16.7 |
 | UITEST-6.4 | x | with no rated data, the trend card shows the **empty state** and no distribution section | D16.7 |
 | UITEST-6.5 | x | switching period (Week / All Time) keeps the charts rendered with the seeded data | D16.7 |
+| UITEST-6.6 | x | a time-tracked entry (set an estimate → complete) surfaces the **Estimated vs Actual** card on the Performance tab | D17 |
 
 **7 · Tasks list — sort & filter** (`TaskListUITests`)
 | ID | Tag | Assertion | Covers |

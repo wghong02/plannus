@@ -162,6 +162,46 @@ final class PerformanceAnalyticsTests: XCTestCase {
                        ["2026-07-20", "2026-07-01", "2026-01-01"], "allTime keeps every rated entry; unrated excluded")
     }
 
+    // MARK: - Estimated vs Actual duration totals (D17)
+
+    private func durationEntry(_ est: Int?, _ act: Int?, _ completedKey: String) -> Entry {
+        Entry(title: "d", estimatedDuration: est, actualDuration: act,
+              completion: Completion(completedAt: day(completedKey)))
+    }
+
+    func testDurationTotalsSumsBothDurationsInWindow() { // spec: DUR-05
+        let now = day("2026-07-22")
+        let entries = [
+            durationEntry(30, 45, "2026-07-20"), // both, in week + month
+            durationEntry(60, 50, "2026-07-01"), // both, in month only
+            durationEntry(20, nil, "2026-07-19"), // estimate only → excluded
+            durationEntry(nil, 40, "2026-07-19"), // actual only → excluded
+            durationEntry(15, 15, "2026-01-01"), // both, older than a month
+        ]
+
+        let month = PerformanceAnalytics.durationTotals(entries, period: .month, now: now)
+        XCTAssertEqual(month.count, 2, "only entries with both durations, in-window")
+        XCTAssertEqual(month.estimated, 90)
+        XCTAssertEqual(month.actual, 95)
+
+        let week = PerformanceAnalytics.durationTotals(entries, period: .week, now: now)
+        XCTAssertEqual(week.count, 1, "week excludes the 3-weeks-ago entry")
+        XCTAssertEqual(week.estimated, 30)
+        XCTAssertEqual(week.actual, 45)
+
+        let all = PerformanceAnalytics.durationTotals(entries, period: .allTime, now: now)
+        XCTAssertEqual(all.count, 3)
+        XCTAssertEqual(all.estimated, 105)
+        XCTAssertEqual(all.actual, 110)
+    }
+
+    func testDurationTotalsEmptyWhenNoneQualify() { // spec: DUR-05
+        let now = day("2026-07-22")
+        let entries = [durationEntry(30, nil, "2026-07-20"), durationEntry(nil, nil, "2026-07-20")]
+        let totals = PerformanceAnalytics.durationTotals(entries, period: .month, now: now)
+        XCTAssertEqual(totals, DurationTotals(estimated: 0, actual: 0, count: 0))
+    }
+
     func testWindowedRatedRespectsLimit() {
         let now = day("2026-07-22")
         let entries = (1...15).map { i in

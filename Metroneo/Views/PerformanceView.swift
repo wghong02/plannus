@@ -25,6 +25,7 @@ struct PerformanceView: View {
         let windowSamples: [RatedSample]
         let granularity: PerformanceGranularity
         let recent: [Entry]
+        let durations: DurationTotals
 
         /// At least one bucket has entries (empty ⇒ the placeholder message).
         var hasData: Bool { !series.allSatisfy { $0.taskCount == 0 } }
@@ -40,7 +41,8 @@ struct PerformanceView: View {
             series: PerformanceAnalytics.trendSeries(samples, period: period, cutoffs: prefs.cutoffs, customStart: customStart),
             windowSamples: PerformanceAnalytics.filteredTasks(samples, period: period, customStart: customStart),
             granularity: PerformanceAnalytics.granularity(for: period, tasks: samples, customStart: customStart),
-            recent: PerformanceAnalytics.windowedRated(scoped, period: period, customStart: customStart)
+            recent: PerformanceAnalytics.windowedRated(scoped, period: period, customStart: customStart),
+            durations: PerformanceAnalytics.durationTotals(scoped, period: period, customStart: customStart)
         )
     }
 
@@ -67,6 +69,7 @@ struct PerformanceView: View {
 
                     Text("Trends").font(.title3.bold())
                     trendCard(d)
+                    if d.durations.count > 0 { durationCard(d.durations) }
                     insights(d)
                     recentList(d)
                 }
@@ -128,6 +131,39 @@ struct PerformanceView: View {
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
         .cardStyle()
+    }
+
+    // MARK: - Estimated vs Actual time (D17)
+
+    /// Two bars — total estimated vs total actual minutes across the period's
+    /// time-tracked entries (those with both durations). Shown only when there's
+    /// at least one such entry (`durations.count > 0`).
+    private func durationCard(_ d: DurationTotals) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Estimated vs Actual").font(.headline)
+            Chart {
+                ForEach(durationBars(d), id: \.label) { bar in
+                    BarMark(x: .value("Kind", bar.label), y: .value("Minutes", bar.minutes))
+                        .foregroundStyle(bar.color)
+                        .annotation(position: .top) {
+                            Text(DateTimeUtilities.formatDuration(bar.minutes)).font(.caption2).foregroundStyle(.secondary)
+                        }
+                }
+            }
+            .chartYAxis { AxisMarks(position: .leading) { yLabel($0.as(Int.self)) } }
+            .chartPlotStyle { edgedPlot($0) }
+            .frame(height: 150)
+            Text("Across \(d.count) time-tracked \(d.count == 1 ? "entry" : "entries") this period.")
+                .font(.caption).foregroundStyle(.secondary)
+        }
+        .padding()
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .cardStyle()
+        .accessibilityIdentifier("durationCard")
+    }
+
+    private func durationBars(_ d: DurationTotals) -> [(label: String, minutes: Int, color: Color)] {
+        [("Estimated", d.estimated, .blue), ("Actual", d.actual, .orange)]
     }
 
     /// Top plot: average line (0–100) with dashed cutoff reference lines (D16.1/2/5).

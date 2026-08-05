@@ -83,6 +83,20 @@ final class IntegrationWorkflowTests: XCTestCase {
         XCTAssertEqual(bucketTotal, 1, "and in exactly one trend bucket")
     }
 
+    func testEstimatedAndActualFlowIntoDurationTotals() { // spec: D17
+        let entries = EntryService(db: makeDB())
+        // An entry with an estimate; complete it and record a differing actual.
+        let e = Entry(title: "Deep work", estimatedDuration: 60)
+        entries.upsertEntry(e)
+        entries.setActualDuration(id: e.id, minutes: 75)
+        entries.completeEntry(id: e.id, at: Date())
+
+        let totals = PerformanceAnalytics.durationTotals(entries.entries, period: .month)
+        XCTAssertEqual(totals.count, 1, "the time-tracked entry is counted")
+        XCTAssertEqual(totals.estimated, 60)
+        XCTAssertEqual(totals.actual, 75)
+    }
+
     // MARK: - 3. Series-scope delete keeps the collection cache coherent (D1.6)
 
     func testSeriesScopeDeletePrunesCollectionCache() { // spec: D1.6 / D5.6

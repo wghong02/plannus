@@ -59,6 +59,20 @@ public enum PerformanceGranularity: Equatable {
 /// Trend of a data point relative to the previous one.
 public enum PerformanceTrend: Equatable { case up, down, stable }
 
+/// Summed estimated vs actual time (minutes) behind the time-tracking bars (D17),
+/// over the entries in the selected period that recorded both durations.
+public struct DurationTotals: Equatable {
+    public var estimated: Int
+    public var actual: Int
+    /// Number of entries counted (0 ⇒ hide the section).
+    public var count: Int
+    public init(estimated: Int, actual: Int, count: Int) {
+        self.estimated = estimated
+        self.actual = actual
+        self.count = count
+    }
+}
+
 /// Number of tasks at a given performance level within a bucket.
 public struct LevelCount: Equatable {
     public var level: PerformanceLevel
@@ -181,6 +195,29 @@ public enum PerformanceAnalytics {
             .sorted { (placement($0) ?? .distantPast) > (placement($1) ?? .distantPast) }
             .prefix(limit)
             .map { $0 }
+    }
+
+    /// Totals for the estimated-vs-actual time bars (D17): the summed estimated
+    /// and actual durations across entries that have **both** recorded, scoped to
+    /// the selected period by placement date (`completedAt`, else time key).
+    public static func durationTotals(
+        _ entries: [Entry],
+        period: PerformancePeriod,
+        customStart: Date? = nil,
+        now: Date = Date()
+    ) -> DurationTotals {
+        let (start, end) = dateRange(for: period, customStart: customStart, now: now)
+        func placement(_ e: Entry) -> Date? { e.completion?.completedAt ?? e.timeKey }
+        let qualifying = entries.filter { e in
+            guard let est = e.estimatedDuration, let act = e.actualDuration, est >= 0, act >= 0 else { return false }
+            guard let d = placement(e) else { return false }
+            return d >= start && d <= end
+        }
+        return DurationTotals(
+            estimated: qualifying.reduce(0) { $0 + ($1.estimatedDuration ?? 0) },
+            actual: qualifying.reduce(0) { $0 + ($1.actualDuration ?? 0) },
+            count: qualifying.count
+        )
     }
 
     /// Average performance across the given tasks (0 if empty).

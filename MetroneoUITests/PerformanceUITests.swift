@@ -64,4 +64,29 @@ final class PerformanceUITests: UITestCase {
         XCTAssertTrue(app.staticTexts["Rated Entries"].waitForExistence(timeout: 5),
                       "All Time still renders the distribution")
     }
+
+    @MainActor
+    func testEstimatedVsActualCardForTimeTrackedEntry() throws { // spec: UITEST-6.6
+        let app = launch()
+        tab(app, "Tasks")
+
+        // Create an entry with an estimated duration.
+        openEditor(app)
+        let estimated = app.textFields["Estimated"]
+        XCTAssertTrue(scrollDownTo(app, estimated), "reach the Duration section")
+        estimated.tap(); estimated.typeText("60")
+        setTitle(app, "Deep work")
+        app.buttons["saveEntryButton"].tap()
+
+        // Complete it — the completion sheet's actual defaults to the estimate.
+        app.buttons["completeToggle"].firstMatch.tap()
+        let done = app.buttons["Done"]
+        XCTAssertTrue(done.waitForExistence(timeout: 5))
+        done.tap()
+
+        // The Performance tab now shows the Estimated vs Actual card.
+        tab(app, "Performance")
+        XCTAssertTrue(app.staticTexts["Estimated vs Actual"].waitForExistence(timeout: 5),
+                      "a time-tracked entry surfaces the Estimated vs Actual card")
+    }
 }

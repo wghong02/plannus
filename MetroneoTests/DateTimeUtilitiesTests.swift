@@ -50,4 +50,13 @@ final class DateTimeUtilitiesTests: XCTestCase {
         XCTAssertFalse(s.isEmpty)
         XCTAssertFalse(s.contains(":"))
     }
+
+    func testFormatDurationMinutesAndHours() { // spec: DUR-06
+        XCTAssertEqual(DateTimeUtilities.formatDuration(0), "0m")
+        XCTAssertEqual(DateTimeUtilities.formatDuration(45), "45m")
+        XCTAssertEqual(DateTimeUtilities.formatDuration(60), "1h")
+        XCTAssertEqual(DateTimeUtilities.formatDuration(90), "1h 30m")
+        XCTAssertEqual(DateTimeUtilities.formatDuration(125), "2h 5m")
+        XCTAssertEqual(DateTimeUtilities.formatDuration(-10), "0m", "negatives clamp to 0")
+    }
 }
