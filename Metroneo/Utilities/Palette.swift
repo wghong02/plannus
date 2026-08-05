@@ -1,4 +1,7 @@
 import SwiftUI
+#if canImport(UIKit)
+import UIKit
+#endif
 
 /// App color palette and shared surface styling. Replaces the old hex-string
 /// parsing: performance colors are `Color` constants (saturated fills that read
@@ -25,6 +28,25 @@ extension PerformancePreferencesService {
 extension Color {
     init(_ rgba: ColorHex.RGBA) {
         self = Color(.sRGB, red: rgba.r, green: rgba.g, blue: rgba.b, opacity: rgba.a)
+    }
+
+    /// The color's **sRGB** components, for persistence as `#RRGGBBAA` (D10). A
+    /// color picked in any space (e.g. Display P3 from the system picker) is
+    /// converted to sRGB so it round-trips with ``init(_:)`` and ``ColorHex``.
+    var rgbaComponents: ColorHex.RGBA {
+        #if canImport(UIKit)
+        let cg = UIColor(self).cgColor
+        if let srgb = CGColorSpace(name: CGColorSpace.sRGB),
+           let converted = cg.converted(to: srgb, intent: .defaultIntent, options: nil),
+           let c = converted.components, c.count >= 3 {
+            return ColorHex.RGBA(r: Double(c[0]), g: Double(c[1]), b: Double(c[2]), a: Double(converted.alpha))
+        }
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        UIColor(self).getRed(&r, green: &g, blue: &b, alpha: &a)
+        return ColorHex.RGBA(r: Double(r), g: Double(g), b: Double(b), a: Double(a))
+        #else
+        return ColorHex.RGBA(r: 0, g: 0, b: 0, a: 1)
+        #endif
     }
 }
 

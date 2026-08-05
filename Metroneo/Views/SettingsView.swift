@@ -98,15 +98,8 @@ struct PerformanceCustomizationScreen: View {
                     VStack(alignment: .leading, spacing: 6) {
                         TextField(level.defaultLabel, text: labelBinding(level))
                             .accessibilityIdentifier("label-\(level.key)")
-                        HStack {
-                            Text("Color").font(.caption).foregroundStyle(.secondary)
-                            TextField("#RRGGBBAA", text: colorBinding(level))
-                                .font(.caption.monospaced())
-                                .accessibilityIdentifier("color-\(level.key)")
-                            RoundedRectangle(cornerRadius: 4)
-                                .fill(custom.color(for: level))
-                                .frame(width: 28, height: 20)
-                        }
+                        ColorPicker("Color", selection: colorBinding(level), supportsOpacity: true)
+                            .accessibilityIdentifier("color-\(level.key)")
                     }
                 }
             }
@@ -167,10 +160,13 @@ struct PerformanceCustomizationScreen: View {
         )
     }
 
-    private func colorBinding(_ level: PerformanceLevel) -> Binding<String> {
+    /// Binds the level's fill to a `ColorPicker` (D10): the picker shows the
+    /// current effective color (custom override or Palette default), and a pick is
+    /// persisted as `#RRGGBBAA`.
+    private func colorBinding(_ level: PerformanceLevel) -> Binding<Color> {
         Binding(
-            get: { custom.customization.colorsHex[level.key] ?? "" },
-            set: { custom.setHex($0.isEmpty ? nil : $0, for: level) }
+            get: { custom.color(for: level) },
+            set: { custom.setHex(ColorHex.string($0.rgbaComponents), for: level) }
         )
     }
 

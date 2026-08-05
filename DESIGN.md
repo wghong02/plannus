@@ -431,17 +431,20 @@ Each performance level's fill color is user-editable, alongside its cutoff and l
 - **D10.1** — each level (Excellent → Poor) has a user-editable **fill color**, stored in
   preferences (with the cutoffs + labels).
 - **D10.2** — defaults are today's `Palette` colors (green 800 / green 500 / blue 500 / orange
-  500 / red 500); each color **persists as a `#RRGGBBAA` hex string** and falls back to the default
-  when unset or unparseable (client-defaulted, like D3). *(Round-trip test: store `#1B5E20FF`, read
-  it back identically.)*
+  500 / red 500); each color **persists as a `#RRGGBBAA` hex string** (opacity included) and falls
+  back to the default when unset or unparseable (client-defaulted, like D3). *(Round-trip test:
+  store `#1B5E20FF`, read it back identically.)*
 - **D10.3** — every level-color use resolves through the custom color: the trend line/points,
   distribution bars, cutoff reference lines ([PV-03]/[PV-04]), performance badges, and the legend.
 - **D10.5** — **badge/label text color** is chosen automatically **black vs white by whichever has
   the higher WCAG contrast ratio** against the level's fill (per WCAG 2.x relative-luminance +
   contrast formula) — a deterministic, unit-testable pick (e.g. a light yellow fill → black text; a
   dark green → white text).
-- **D10.4** — the settings screen gains a **color picker per level** (see the consolidated
-  "Performance customization" screen note under D12 — the single source for the final screen).
+- **D10.4** — the settings screen gains a native SwiftUI **`ColorPicker` per level** (opacity
+  enabled), replacing the earlier hex text field. A pick is serialized to `#RRGGBBAA` via a
+  `Color` → sRGB bridge (`Color.rgbaComponents`), and the stored hex is shown back by resolving it
+  to a `Color`; wide-gamut picks are converted to sRGB so they round-trip. (See the consolidated
+  "Performance customization" screen note under D12 — the single source for the final screen.)
 
 *Extends* `Palette` (`PerformanceLevel.color` / `color(for:)` become preference-driven), [PV-03]/
 [PV-04], and badges; *pairs with* D8 (same screen). Text-contrast is handled by **D10.5** (WCAG
@@ -489,8 +492,8 @@ classification, distinct from D8's performance-level labels.)*
 > one settings screen that today is **Performance Cutoffs** ([SET-02]/[SET-03]). The finished
 > screen ("**Performance**" under Personal Preferences) has:
 > - a **per-level row** (Excellent → Poor), each with its **cutoff** (existing [SET-03] validation:
->   `0…100`, non-decreasing), **label** field (D8, blank → default), and **color** picker (D10,
->   blank → default `Palette`; text-contrast handled per D10.4);
+>   `0…100`, non-decreasing), **label** field (D8, blank → default), and a native **`ColorPicker`**
+>   (D10, opacity enabled, blank → default `Palette`; text-contrast handled per D10.5);
 > - an **Overall-Trend** section with the improving/declining **thresholds** (default +5% / −5%)
 >   and the three trend **labels** + "N/A" (D12, blank → default);
 > - **Reset to Defaults** ([SET-04]) restores cutoffs **and** labels/colors/trend to their
@@ -809,6 +812,7 @@ test assertions. This covers **`PREF-UI` and every `(v)` row** below.
 | CLR-01 | i | color persists as `#RRGGBBAA` and round-trips (`#1B5E20FF` in == out); blank/unparseable → default | D10.2 |
 | CLR-02 | u | defaults equal today's `Palette` (green800/green500/blue500/orange500/red500) | D10.2 |
 | CLR-03 | u | badge text = black-vs-white by **higher WCAG contrast** (light-yellow fill→black; dark-green→white) | D10.5 |
+| CLR-04 | i | **ColorPicker bridge:** a `Color` (incl. opacity, wide-gamut) → `#RRGGBBAA` → stored → shown back as the same color; a picked color persists through the service and reloads unchanged | D10.4 |
 | TRND-01 | u | `(last−first)/first` on first/last non-empty buckets; first 60,last 66 → +10% → Improving at +5%, Neutral at +15%; `<2` non-empty → N/A; zero-first per [PA-11] | D12.1 |
 | TRND-02 | i | thresholds + trend labels persist in prefs; blank label → default | D12.2/D12.3 |
 | PREF-UI | v | one **Performance** screen: per-level cutoff([SET-03] validation)+label+color rows, trend threshold+label section, Reset restores all | D8.4/D10.4/D12.4 |
