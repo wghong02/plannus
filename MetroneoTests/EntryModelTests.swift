@@ -97,4 +97,45 @@ final class EntryModelTests: XCTestCase {
         XCTAssertFalse(ReminderLead.custom(minutes: 0).isValid, "custom must be > 0")
         XCTAssertFalse(ReminderLead.preset(minutes: 7).isValid)
     }
+
+    func testIsOverdue() { // spec: ENT-OVR-01
+        let now = day("2026-07-21").addingTimeInterval(12 * 3600) // noon, Jul 21
+        // Timed deadline in the past, still open → overdue.
+        let pastDue = Entry(deadline: Deadline(date: now.addingTimeInterval(-3600), hasTime: true))
+        XCTAssertTrue(pastDue.isOverdue(asOf: now))
+        // Completed → never overdue.
+        var done = pastDue; done.completion = Completion(completedAt: now)
+        XCTAssertFalse(done.isOverdue(asOf: now))
+        // Not completable (no completion aspect) → never overdue.
+        XCTAssertFalse(Entry(deadline: Deadline(date: now.addingTimeInterval(-3600), hasTime: true),
+                             completion: nil).isOverdue(asOf: now))
+        // Future deadline → not overdue.
+        XCTAssertFalse(Entry(deadline: Deadline(date: now.addingTimeInterval(3600), hasTime: true)).isOverdue(asOf: now))
+        // Untimed → not overdue.
+        XCTAssertFalse(Entry(title: "x").isOverdue(asOf: now))
+        // Date-only deadline yesterday → overdue (past that day's end).
+        XCTAssertTrue(Entry(deadline: Deadline(date: day("2026-07-20"), hasTime: false)).isOverdue(asOf: now))
+        // All-day event today → NOT overdue until the day ends.
+        XCTAssertFalse(Entry(scheduled: Schedule(start: day("2026-07-21"), end: day("2026-07-21"), allDay: true))
+                        .isOverdue(asOf: now), "all-day today isn't overdue at noon")
+    }
+
+    func testDueReminderCount() { // spec: REM-09
+        let now = day("2026-07-21").addingTimeInterval(12 * 3600) // noon
+        func reminder(at date: Date, lead: Int = 0, completed: Bool = false) -> Entry {
+            Entry(deadline: Deadline(date: date, hasTime: true),
+                  reminderLeadMinutes: lead,
+                  completion: completed ? Completion(completedAt: now) : Completion())
+        }
+        let entries = [
+            reminder(at: now.addingTimeInterval(-3600)), // fired an hour ago, incomplete → due
+            reminder(at: now.addingTimeInterval(-60), completed: true), // fired but completed → excluded
+            reminder(at: now.addingTimeInterval(3600)), // fires later → not due
+            Entry(deadline: Deadline(date: now.addingTimeInterval(-3600))), // no reminder → excluded
+            Entry(title: "undated", reminderLeadMinutes: 0), // no time key → excluded
+        ]
+        XCTAssertEqual(ReminderTiming.dueReminderCount(entries, by: now), 1, "only overdue, incomplete reminders count")
+        // Widening the horizon past the future reminder counts it too.
+        XCTAssertEqual(ReminderTiming.dueReminderCount(entries, by: now.addingTimeInterval(7200)), 2)
+    }
 }

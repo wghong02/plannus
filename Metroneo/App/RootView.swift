@@ -7,6 +7,8 @@ struct RootView: View {
     let database: EntryDatabase
 
     @EnvironmentObject private var router: NotificationRouter
+    @EnvironmentObject private var entryService: EntryService
+    @Environment(\.scenePhase) private var scenePhase
     @AppStorage(onboardingSeenKey) private var onboardingSeen = false
     @State private var showOnboarding = false
 
@@ -32,5 +34,9 @@ struct RootView: View {
         }
         .onAppear { showOnboarding = OnboardingGate.shouldShow() }
         .onChange(of: onboardingSeen) { _, seen in showOnboarding = !seen }
+        // Recompute the due-reminder badge whenever the app returns to the fore (D18).
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { entryService.refreshReminderBadge() }
+        }
     }
 }

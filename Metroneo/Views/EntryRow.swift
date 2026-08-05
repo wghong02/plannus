@@ -21,9 +21,11 @@ struct EntryRow: View {
             VStack(alignment: .leading, spacing: 5) {
                 Text(entry.title)
                     .strikethrough(entry.isCompleted)
+                    // Overdue, still-open entries read red (D19).
+                    .foregroundStyle(entry.isOverdue() ? Color.red : Color.primary)
                 Text(Self.subtitle(entry))
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(entry.isOverdue() ? Color.red.opacity(0.8) : Color.secondary)
             }
             Spacer()
             if entry.isSeriesMember {

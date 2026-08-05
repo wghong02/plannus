@@ -5,10 +5,14 @@ import UserNotifications
 /// so the service stays testable without the notification system.
 public protocol ReminderScheduling: AnyObject {
     /// (Re)schedules or cancels an entry's local notification to match its current
-    /// state — cancels when completed / no reminder / fire time past (D9.5).
-    func reschedule(for entry: Entry)
+    /// state — cancels when completed / no reminder / fire time past (D9.5). The
+    /// full `allEntries` snapshot lets the notification carry the app-icon **badge**
+    /// count it should show when it fires (due reminders by then, D18).
+    func reschedule(for entry: Entry, allEntries: [Entry])
     /// Cancels any pending notification for the entry (on delete).
     func cancel(entryId: String)
+    /// Sets the app-icon badge to `count` (the current due-reminder total, D18).
+    func setBadgeCount(_ count: Int)
 }
 
 /// Routes a tapped reminder to the Calendar tab at the entry's day (D9.4), and
@@ -70,7 +74,7 @@ public final class ReminderScheduler: NSObject, ObservableObject, ReminderSchedu
         }
     }
 
-    public func reschedule(for entry: Entry) {
+    public func reschedule(for entry: Entry, allEntries: [Entry]) {
         center.removePendingNotificationRequests(withIdentifiers: [entry.id])
         guard
             !entry.isCompleted,
@@ -81,6 +85,9 @@ public final class ReminderScheduler: NSObject, ObservableObject, ReminderSchedu
         let content = UNMutableNotificationContent()
         content.title = entry.title
         content.body = Self.bodyText(entry)
+        // Badge the app icon at fire time with the reminders due by then (D18),
+        // so the count updates even while the app is backgrounded.
+        content.badge = NSNumber(value: ReminderTiming.dueReminderCount(allEntries, by: fire))
         if let day = entry.timeKey {
             content.userInfo = ["calendarDate": day.timeIntervalSince1970]
         }
@@ -91,6 +98,10 @@ public final class ReminderScheduler: NSObject, ObservableObject, ReminderSchedu
 
     public func cancel(entryId: String) {
         center.removePendingNotificationRequests(withIdentifiers: [entryId])
+    }
+
+    public func setBadgeCount(_ count: Int) {
+        center.setBadgeCount(max(0, count))
     }
 
     /// Notification body: the entry's time (D9.3).

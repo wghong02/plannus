@@ -146,6 +146,26 @@ public struct Entry: Codable, Identifiable, Equatable, Hashable, Sendable {
     /// Recurrence provenance (D15): part of a generated series.
     public var isSeriesMember: Bool { seriesId != nil }
 
+    /// The instant this entry is "due" for overdue styling (D19): the deadline
+    /// (end of its day when date-only), else the scheduled block's end (end of day
+    /// when all-day). `nil` when untimed — an untimed entry is never overdue.
+    public var dueInstant: Date? {
+        if let d = deadline {
+            return d.hasTime ? d.date : DateTimeUtilities.endOfDay(d.date)
+        }
+        if let s = scheduled {
+            return s.allDay ? DateTimeUtilities.endOfDay(s.end) : s.end
+        }
+        return nil
+    }
+
+    /// True when the entry can still be completed but its due instant has passed
+    /// (D19). Drives the red styling on the Tasks/Calendar lists.
+    public func isOverdue(asOf now: Date = Date()) -> Bool {
+        guard isCompletable, !isCompleted, let due = dueInstant else { return false }
+        return due < now
+    }
+
     /// Estimate-vs-actual delta in minutes when both durations are present (D14.3):
     /// positive = over the estimate, negative = under. `nil` if either is missing.
     /// Display-only — it affects nothing else (D14.4).

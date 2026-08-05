@@ -13,8 +13,10 @@ final class IntegrationWorkflowTests: XCTestCase {
     private final class ReminderSchedulingSpy: ReminderScheduling {
         private(set) var rescheduled: [String] = []
         private(set) var cancelled: [String] = []
-        func reschedule(for entry: Entry) { rescheduled.append(entry.id) }
+        private(set) var lastBadge: Int?
+        func reschedule(for entry: Entry, allEntries: [Entry]) { rescheduled.append(entry.id) }
         func cancel(entryId: String) { cancelled.append(entryId) }
+        func setBadgeCount(_ count: Int) { lastBadge = count }
         func reset() { rescheduled = []; cancelled = [] }
     }
 
@@ -40,6 +42,21 @@ final class IntegrationWorkflowTests: XCTestCase {
         entries.deleteEntry(id: e.id)
         XCTAssertEqual(spy.cancelled, [e.id], "deleting cancels the reminder")
         XCTAssertTrue(spy.rescheduled.isEmpty, "delete doesn't reschedule")
+    }
+
+    func testAppBadgeReflectsDueReminders() { // spec: REM-10
+        let spy = ReminderSchedulingSpy()
+        let entries = EntryService(db: makeDB(), scheduler: spy)
+
+        // An entry whose reminder fire time is already in the past (overdue), not done.
+        let overdue = Entry(title: "Overdue",
+                            deadline: Deadline(date: Date().addingTimeInterval(-3600)),
+                            reminderLeadMinutes: 0)
+        entries.upsertEntry(overdue)
+        XCTAssertEqual(spy.lastBadge, 1, "an overdue, incomplete reminder bumps the badge")
+
+        entries.completeEntry(id: overdue.id)
+        XCTAssertEqual(spy.lastBadge, 0, "completing it clears it from the due count")
     }
 
     func testSeriesThisAndFutureReArmsRegeneratedOccurrences() { // spec: D15.7

@@ -659,6 +659,43 @@ The Performance tab adds a **time-tracking** card beneath the trend/distribution
 *Shipped:* `durationTotals` + the `durationCard` in `PerformanceView`; covered by `DUR-01`/`DUR-02`,
 the `D17` integration test, and `UITEST-6.6`. *New capability.*
 
+### D18 — Due-reminder app-icon badge · agreed (shipped) · depends: D9
+The app icon shows a red **badge** with the number of **due/overdue reminders** — entries that have
+a reminder whose fire time has passed and that aren't completed.
+
+- **D18.1 — Count:** `ReminderTiming.dueReminderCount(entries, by:)` — entries where
+  `!isCompleted`, `fireDate ≤ date`. Passing `now` gives the current badge; passing a notification's
+  fire time gives the badge that notification carries.
+- **D18.2 — Refresh on change + foreground:** `EntryService.refreshReminderBadge()` sets the badge
+  (`UNUserNotificationCenter.setBadgeCount`) after every mutation and on load; `RootView` also calls
+  it when the scene becomes **active**, so the "due" total is current on return.
+- **D18.3 — Refresh at fire time:** each scheduled reminder's `UNNotificationContent.badge` is set to
+  the reminders due by *its* fire time, so the badge updates even while the app is backgrounded.
+  (Only the changed entry is rescheduled per mutation, so a sibling's carried badge can lag by ±1
+  until the next foreground refresh corrects the exact count — D18.2.)
+- **D18.4 — Authorization:** relies on the existing `.badge` authorization (already requested with
+  `.alert`/`.sound`, D9.3); if badges aren't authorized, `setBadgeCount` is a no-op.
+
+*Shipped:* `dueReminderCount` + the scheduler/`EntryService`/`RootView` wiring; covered by `REM-05`
+and the `D18` integration test. *New capability.*
+
+### D19 — Overdue entry styling · agreed (shipped) · depends: D6
+Not-completed entries whose **due instant has passed** render **red** on the Tasks and Calendar
+lists (the shared `EntryRow`), a lightweight "needs attention" cue distinct from completed
+(struck-through + dimmed).
+
+- **D19.1 — Predicate:** `Entry.isOverdue(asOf:)` — `isCompletable && !isCompleted && dueInstant < now`.
+  `dueInstant` is the deadline (end of its day when date-only), else the scheduled block's end (end
+  of day when all-day); untimed entries have none and are never overdue (so an all-day event isn't
+  "overdue" until its day ends).
+- **D19.2 — Relative to *now*, not the shown day:** an entry due yesterday reads red wherever it
+  appears, including on a past calendar day.
+- **D19.3 — Display-only:** overdue affects nothing else (no gating/analytics change), and applies
+  only to open, completable entries (a pure event or a completed entry never reads red).
+
+*Shipped:* `Entry.isOverdue` + the `EntryRow` foreground color; covered by `ENT-OVR-01`. XCUITest
+can't assert text color, so this is unit-tested only. *New capability.*
+
 ---
 
 ## Rework tasks
@@ -800,6 +837,7 @@ test assertions. This covers **`PREF-UI` and every `(v)` row** below.
 | ENT-01 | u | new-entry defaults exactly per **D6.9** (priority 50, types `[]`, both aspects present with nil inner values, dates/series nil) | D6.9 |
 | ENT-02 | u | truth table: `completion==nil`→`!isCompletable`; `completion(nil)`→`isCompletable && !isCompleted`; `rating(perf:nil)`→`isRatable && !isRated`; `rating(perf:80)`→`isRated` | D6.3 |
 | ENT-03 | u | display rule: a `scheduled` entry → event; deadline-only/undated → task | D6.6 |
+| ENT-OVR-01 | u | `isOverdue`: open+completable+`dueInstant<now` → true; completed / not-completable / future / undated / all-day-today → false (dueInstant = deadline or scheduled end, end-of-day when date-only/all-day) | D19.1 |
 | ESVC-02 | i | `completeEntry(id)`→`completedAt=now` (isCompleted); `uncompleteEntry(id)`→nil | D6 |
 | ESVC-03 | i | `rateEntry(id,80,notes)`→`performanceRating=80`,notes set; `notes:nil` clears | D6 |
 | ESVC-04 | u | **gating no-op**: `completeEntry` on `completion==nil` (or `rateEntry` on `rating==nil`) leaves state unchanged, adds no aspect | D6.3 |
@@ -847,6 +885,8 @@ test assertions. This covers **`PREF-UI` and every `(v)` row** below.
 | REM-06 | i | denied auth → reminder control disabled, **no reminder stored**; grant re-enables | D9.3a |
 | REM-07 | v | tapping the notification opens Calendar at the entry's **time-key day** (not today) | D9.4 |
 | REM-08 | i | reschedule on **time-key** change only (non-key date change → no reschedule); cancel on complete/delete/remove; **re-arm on un-complete** if still future | D9.5 |
+| REM-09 | u | `dueReminderCount(by:)` = reminders with fire time ≤ the given date and not completed; excludes completed / future / no-reminder / undated | D18.1 |
+| REM-10 | i | the app badge tracks due reminders: adding an overdue incomplete entry → 1; completing it → 0 | D18.2 |
 
 ### D11 / D13 / D14 — small standalone
 | ID | Tag | Assertion | Covers |

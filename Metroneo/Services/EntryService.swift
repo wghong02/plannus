@@ -36,7 +36,15 @@ public final class EntryService: ObservableObject {
     @discardableResult
     public func loadEntries() -> [Entry] {
         entries = (try? db.loadEntries()) ?? []
+        refreshReminderBadge()
         return entries
+    }
+
+    /// Sets the app-icon badge to the current due-reminder count (D18). Called
+    /// after every mutation and on load; also safe to call when the app returns to
+    /// the foreground so the "due" total is current.
+    public func refreshReminderBadge() {
+        scheduler?.setBadgeCount(ReminderTiming.dueReminderCount(entries))
     }
 
     // MARK: - Mutations (each persists one entity immediately)
@@ -54,7 +62,8 @@ public final class EntryService: ObservableObject {
         } else {
             entries.append(entry)
         }
-        scheduler?.reschedule(for: entry)
+        scheduler?.reschedule(for: entry, allEntries: entries)
+        refreshReminderBadge()
     }
 
     /// Removes one entry (D1.2) and drops its id from every collection (D5.6).
@@ -68,6 +77,7 @@ public final class EntryService: ObservableObject {
         }
         entries.removeAll { $0.id == id }
         scheduler?.cancel(entryId: id)
+        refreshReminderBadge()
         // The store dropped this id from every collection (D5.6); mirror that in
         // the collection cache so no stale/dangling member id survives.
         deletionObserver?.entryDeleted(id: id)
@@ -117,6 +127,7 @@ public final class EntryService: ObservableObject {
         }
         entries[index] = updated
         // Completing cancels, un-completing re-arms, a time change reschedules (D9.5).
-        scheduler?.reschedule(for: updated)
+        scheduler?.reschedule(for: updated, allEntries: entries)
+        refreshReminderBadge()
     }
 }

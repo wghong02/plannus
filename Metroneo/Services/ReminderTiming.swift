@@ -41,4 +41,15 @@ public enum ReminderTiming {
     public static func shouldSchedule(fireDate: Date, now: Date = Date()) -> Bool {
         fireDate > now
     }
+
+    /// Count of **due/overdue** reminders as of `date` — entries with a reminder
+    /// whose fire time has passed (`≤ date`) and that aren't completed. This is the
+    /// app-icon badge number (D18); passing a notification's fire time gives the
+    /// badge that notification should carry.
+    public static func dueReminderCount(_ entries: [Entry], by date: Date = Date()) -> Int {
+        entries.reduce(into: 0) { count, entry in
+            guard !entry.isCompleted, let fire = fireDate(for: entry), fire <= date else { return }
+            count += 1
+        }
+    }
 }
