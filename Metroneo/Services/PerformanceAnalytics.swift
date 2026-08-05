@@ -110,10 +110,13 @@ public struct RatedSample: Equatable, Sendable {
     /// Placement date on the timeline (never nil for a mapped sample).
     public var completedAt: Date?
     public var performanceRating: Int
+    /// Priority weight for the weighted average (DESIGNV2 R7.3); `1` = unweighted.
+    public var weight: Double
 
-    public init(completedAt: Date?, performanceRating: Int) {
+    public init(completedAt: Date?, performanceRating: Int, weight: Double = 1) {
         self.completedAt = completedAt
         self.performanceRating = performanceRating
+        self.weight = weight
     }
 }
 
@@ -127,6 +130,17 @@ public enum PerformanceAnalytics {
             guard let rating = entry.rating?.performanceRating else { return nil }
             let date = entry.completion?.completedAt ?? entry.timeKey
             return RatedSample(completedAt: date, performanceRating: rating)
+        }
+    }
+
+    /// Maps rated `TaskItem`s to samples (DESIGNV2 R2.3), each carrying its priority
+    /// weight (R7.3): only rated items count, placed by `placementDate`
+    /// (completion, else due).
+    public static func samples(from items: [TaskItem], weights: PriorityWeights = .defaults) -> [RatedSample] {
+        items.compactMap { item in
+            guard let rating = item.rating else { return nil }
+            return RatedSample(completedAt: item.placementDate, performanceRating: rating,
+                               weight: Double(weights.weight(for: item.priority)))
         }
     }
 
@@ -220,11 +234,56 @@ public enum PerformanceAnalytics {
         )
     }
 
-    /// Average performance across the given tasks (0 if empty).
+    /// `durationTotals` over `TaskItem`s (DESIGNV2 R2/D17): estimated + actual from
+    /// the sidecar, placed by `placementDate`, scoped to the period.
+    public static func durationTotals(
+        _ items: [TaskItem],
+        period: PerformancePeriod,
+        customStart: Date? = nil,
+        now: Date = Date()
+    ) -> DurationTotals {
+        let (start, end) = dateRange(for: period, customStart: customStart, now: now)
+        let qualifying = items.filter { i in
+            guard let est = i.estimatedDuration, let act = i.actualDuration, est >= 0, act >= 0 else { return false }
+            guard let d = i.placementDate else { return false }
+            return d >= start && d <= end
+        }
+        return DurationTotals(
+            estimated: qualifying.reduce(0) { $0 + ($1.estimatedDuration ?? 0) },
+            actual: qualifying.reduce(0) { $0 + ($1.actualDuration ?? 0) },
+            count: qualifying.count
+        )
+    }
+
+    /// Rated `TaskItem`s in the selected period, newest first, capped at `limit` —
+    /// the Performance "Recent" list over the companion's population (DESIGNV2 R2).
+    public static func windowedRated(
+        _ items: [TaskItem],
+        period: PerformancePeriod,
+        customStart: Date? = nil,
+        now: Date = Date(),
+        limit: Int = 10
+    ) -> [TaskItem] {
+        let (start, end) = dateRange(for: period, customStart: customStart, now: now)
+        return items
+            .filter { $0.rating != nil }
+            .filter { i in
+                guard let d = i.placementDate else { return false }
+                return d >= start && d <= end
+            }
+            .sorted { ($0.placementDate ?? .distantPast) > ($1.placementDate ?? .distantPast) }
+            .prefix(limit)
+            .map { $0 }
+    }
+
+    /// **Priority-weighted** average performance across the given tasks (0 if empty
+    /// or zero total weight) — `Σ(rating·weight) / Σ(weight)` (DESIGNV2 R7.3). With
+    /// every weight `1` (the default / Entry path) this is the plain mean.
     public static func average(_ tasks: [RatedSample]) -> Double {
-        guard !tasks.isEmpty else { return 0 }
-        let sum = tasks.reduce(0) { $0 + $1.performanceRating }
-        return Double(sum) / Double(tasks.count)
+        let totalWeight = tasks.reduce(0.0) { $0 + $1.weight }
+        guard totalWeight > 0 else { return 0 }
+        let weightedSum = tasks.reduce(0.0) { $0 + Double($1.performanceRating) * $1.weight }
+        return weightedSum / totalWeight
     }
 
     /// Bucket granularity for the trend chart, chosen from the window span so it

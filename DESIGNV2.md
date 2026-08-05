@@ -251,8 +251,13 @@ Phased so the app keeps building throughout; deletions come last.
    (SwiftData) with **orphan reconciliation**, and `TaskService` (fetch → reconcile → join →
    items / needsRating / ratedItems). *(Additive; not yet wired into the UI.)* Tests:
    `PerformanceSidecarStoreTests`, `TaskServiceTests` (incl. the reconcile-vs-window edge).
-3. **Analytics rewire** — feed `TaskItem`s into the existing `PerformanceAnalytics` (D16/D17); the
-   Performance tab goes live on real data. Keep the pure-analytics tests.
+3. **Analytics rewire** ✅ — `PerformanceAnalytics` now has `TaskItem` overloads
+   (`samples`/`durationTotals`/`windowedRated`) and the **priority-weighted average** (R7.3):
+   `RatedSample` carries a weight, `average` is `Σ(rating·w)/Σ(w)`, and `PriorityWeights` (default
+   1/2/3/4) lives in the customization prefs with a **tolerant decode** so upgrades don't wipe prefs.
+   The old `[Entry]` path is unchanged (weight 1 = plain mean). *(Analytics are ready; the Performance
+   tab is wired to real data when the UI swaps over.)* Tests: weighted average, TaskItem samples/
+   trend/durations/windowedRated, priority-weight persistence + legacy decode.
 4. **R4 write-back** — complete/create/edit/delete → EventKit; rating/estimate/actual → sidecar.
 5. **R6 Needs-rating inbox** + **R5 list grouping** + **R7 priority picker**; retire the completion
    sheet's in-app-only assumption.

@@ -211,4 +211,55 @@ final class PerformanceAnalyticsTests: XCTestCase {
         }
         XCTAssertEqual(PerformanceAnalytics.windowedRated(entries, period: .allTime, now: now, limit: 5).count, 5)
     }
+
+    // MARK: - Priority-weighted average + TaskItem population (DESIGNV2 R7.3 / R2)
+
+    private func item(_ rating: Int?, _ priority: ReminderPriority, _ completedKey: String,
+                      estimated: Int? = nil, actual: Int? = nil) -> TaskItem {
+        let r = ReminderData(id: completedKey, title: completedKey, isCompleted: true,
+                             completionDate: day(completedKey), priority: priority)
+        return TaskItem(reminder: r, metadata: PerformanceMetadata(rating: rating, estimatedDuration: estimated, actualDuration: actual))
+    }
+
+    func testWeightedAverage() { // spec: R7.3
+        func s(_ r: Int, _ w: Double) -> RatedSample { RatedSample(completedAt: nil, performanceRating: r, weight: w) }
+        XCTAssertEqual(PerformanceAnalytics.average([s(40, 1), s(80, 1)]), 60, "equal weights → simple mean")
+        XCTAssertEqual(PerformanceAnalytics.average([s(40, 1), s(80, 3)]), 70, "(40·1 + 80·3)/4")
+        XCTAssertEqual(PerformanceAnalytics.average([s(50, 0)]), 0, "zero total weight → 0")
+        XCTAssertEqual(PerformanceAnalytics.average([]), 0)
+    }
+
+    func testTaskItemSamplesCarryPriorityWeight() { // spec: R7.3 / R2.3
+        let items = [item(40, .none, "2026-07-22"), item(80, .high, "2026-07-22"), item(nil, .low, "2026-07-22")]
+        // Default weights None=1 / High=4 → (40·1 + 80·4)/5 = 72; unrated dropped.
+        let samples = PerformanceAnalytics.samples(from: items)
+        XCTAssertEqual(samples.count, 2, "only rated items map")
+        XCTAssertEqual(PerformanceAnalytics.average(samples), 72)
+        // Equal custom weights → plain mean 60.
+        let equal = PerformanceAnalytics.samples(from: items, weights: PriorityWeights(none: 1, low: 1, medium: 1, high: 1))
+        XCTAssertEqual(PerformanceAnalytics.average(equal), 60)
+    }
+
+    func testTrendAverageIsPriorityWeighted() { // spec: R7.3
+        let now = day("2026-07-22")
+        let samples = PerformanceAnalytics.samples(from: [item(40, .none, "2026-07-22"), item(80, .high, "2026-07-22")])
+        let last = PerformanceAnalytics.trendSeries(samples, period: .week, now: now).last!
+        XCTAssertEqual(last.taskCount, 2)
+        XCTAssertEqual(last.average, 72, "the trend bucket average is priority-weighted")
+    }
+
+    func testTaskItemDurationTotalsAndWindowedRated() { // spec: R2 / D17
+        let now = day("2026-07-22")
+        let items = [
+            item(90, .high, "2026-07-20", estimated: 30, actual: 45),
+            item(70, .low, "2026-07-01"),
+            item(nil, .none, "2026-07-20", estimated: 60, actual: nil), // no actual → not in durations
+        ]
+        let totals = PerformanceAnalytics.durationTotals(items, period: .month, now: now)
+        XCTAssertEqual(totals, DurationTotals(estimated: 30, actual: 45, count: 1))
+
+        XCTAssertEqual(PerformanceAnalytics.windowedRated(items, period: .week, now: now).map(\.title), ["2026-07-20"])
+        XCTAssertEqual(PerformanceAnalytics.windowedRated(items, period: .month, now: now).map(\.title),
+                       ["2026-07-20", "2026-07-01"], "newest first, rated only")
+    }
 }

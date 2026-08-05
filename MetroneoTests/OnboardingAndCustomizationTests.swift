@@ -35,6 +35,26 @@ final class OnboardingAndCustomizationTests: XCTestCase {
 
     // MARK: - Colors (D10)
 
+    func testPriorityWeightsPersistAndDefault() { // spec: R7.3
+        let d = makeDefaults()
+        let s = PerformanceCustomizationService(defaults: d)
+        XCTAssertEqual(s.priorityWeights, .defaults)
+        XCTAssertEqual(s.priorityWeights.weight(for: .high), 4, "default High weight")
+        XCTAssertEqual(s.priorityWeights.weight(for: .none), 1)
+
+        s.setPriorityWeights(PriorityWeights(none: 0, low: 1, medium: 2, high: 3))
+        XCTAssertEqual(PerformanceCustomizationService(defaults: d).priorityWeights.weight(for: .high), 3, "persists + reloads")
+    }
+
+    func testCustomizationDecodesLegacyWithoutPriorityWeights() throws { // spec: R7.3 (upgrade safety)
+        // Stored prefs from before priorityWeights existed must still decode, keeping
+        // their labels/colors and defaulting the new field (not wiping everything).
+        let legacy = #"{"labels":{"good":"Nice"},"colorsHex":{},"trendImprovingPercent":5,"trendDecliningPercent":-5,"trendLabels":{"improving":"Up","neutral":"N","declining":"Down","na":"NA"}}"#
+        let c = try JSONDecoder().decode(PerformanceCustomization.self, from: Data(legacy.utf8))
+        XCTAssertEqual(c.labels["good"], "Nice", "existing fields survive the upgrade")
+        XCTAssertEqual(c.priorityWeights, .defaults, "missing field defaults, decode doesn't fail")
+    }
+
     func testColorHexStorageAndInvalidFallback() { // spec: CLR-01
         let d = makeDefaults()
         let s = PerformanceCustomizationService(defaults: d)

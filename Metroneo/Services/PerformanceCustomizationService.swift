@@ -20,10 +20,39 @@ public struct TrendLabels: Codable, Equatable, Sendable {
     )
 }
 
-/// User overrides for the performance-level labels (D8), colors (D10), and the
-/// overall-trend thresholds/labels (D12). Stored as user *overrides* only —
-/// anything unset falls back to the built-in default (Palette color / English
-/// label / ±5%), so defaults always equal today's behavior (CLR-02).
+/// Weights the analytics **average** by a reminder's priority (DESIGNV2 R7.3):
+/// higher priority ⇒ higher weight, so important work counts more. Defaults
+/// None/Low/Medium/High = 1/2/3/4; configurable in Settings.
+public struct PriorityWeights: Codable, Equatable, Sendable {
+    public var none: Int
+    public var low: Int
+    public var medium: Int
+    public var high: Int
+
+    public init(none: Int = 1, low: Int = 2, medium: Int = 3, high: Int = 4) {
+        self.none = none
+        self.low = low
+        self.medium = medium
+        self.high = high
+    }
+
+    public static let defaults = PriorityWeights()
+
+    public func weight(for priority: ReminderPriority) -> Int {
+        switch priority {
+        case .none: return none
+        case .low: return low
+        case .medium: return medium
+        case .high: return high
+        }
+    }
+}
+
+/// User overrides for the performance-level labels (D8), colors (D10), the
+/// overall-trend thresholds/labels (D12), and the priority weights (R7.3). Stored
+/// as user *overrides* only — anything unset falls back to the built-in default
+/// (Palette color / English label / ±5% / 1·2·3·4), so defaults always equal
+/// today's behavior (CLR-02).
 public struct PerformanceCustomization: Codable, Equatable, Sendable {
     /// `PerformanceLevel.key` → custom label (blank/absent ⇒ default).
     public var labels: [String: String]
@@ -32,19 +61,38 @@ public struct PerformanceCustomization: Codable, Equatable, Sendable {
     public var trendImprovingPercent: Double
     public var trendDecliningPercent: Double
     public var trendLabels: TrendLabels
+    public var priorityWeights: PriorityWeights
 
     public init(
         labels: [String: String] = [:],
         colorsHex: [String: String] = [:],
         trendImprovingPercent: Double = 5,
         trendDecliningPercent: Double = -5,
-        trendLabels: TrendLabels = .defaults
+        trendLabels: TrendLabels = .defaults,
+        priorityWeights: PriorityWeights = .defaults
     ) {
         self.labels = labels
         self.colorsHex = colorsHex
         self.trendImprovingPercent = trendImprovingPercent
         self.trendDecliningPercent = trendDecliningPercent
         self.trendLabels = trendLabels
+        self.priorityWeights = priorityWeights
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case labels, colorsHex, trendImprovingPercent, trendDecliningPercent, trendLabels, priorityWeights
+    }
+
+    /// Tolerant decode — a newly-added field (e.g. `priorityWeights`) defaults
+    /// rather than failing the whole decode, so an upgrade never wipes stored prefs.
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        labels = try c.decodeIfPresent([String: String].self, forKey: .labels) ?? [:]
+        colorsHex = try c.decodeIfPresent([String: String].self, forKey: .colorsHex) ?? [:]
+        trendImprovingPercent = try c.decodeIfPresent(Double.self, forKey: .trendImprovingPercent) ?? 5
+        trendDecliningPercent = try c.decodeIfPresent(Double.self, forKey: .trendDecliningPercent) ?? -5
+        trendLabels = try c.decodeIfPresent(TrendLabels.self, forKey: .trendLabels) ?? .defaults
+        priorityWeights = try c.decodeIfPresent(PriorityWeights.self, forKey: .priorityWeights) ?? .defaults
     }
 
     public static let defaults = PerformanceCustomization()
@@ -148,5 +196,15 @@ public final class PerformanceCustomizationService: ObservableObject {
     public func trendLabel(_ keyPath: KeyPath<TrendLabels, String>) -> String {
         let custom = customization.trendLabels[keyPath: keyPath].trimmingCharacters(in: .whitespaces)
         return custom.isEmpty ? TrendLabels.defaults[keyPath: keyPath] : custom
+    }
+
+    // MARK: - Priority weights (R7.3)
+
+    public var priorityWeights: PriorityWeights { customization.priorityWeights }
+
+    public func setPriorityWeights(_ weights: PriorityWeights) {
+        var c = customization
+        c.priorityWeights = weights
+        setCustomization(c)
     }
 }
