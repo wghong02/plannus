@@ -244,10 +244,13 @@ These requirements are **unaffected** by the pivot; the population feeding them 
 
 Phased so the app keeps building throughout; deletions come last.
 
-1. **R1 foundation** — `ReminderStore` protocol + `EventKitReminderStore` + `FakeReminderStore`;
-   Info.plist usage string; access-request flow. *(Adds only; deletes nothing.)*
-2. **R2/R3 read model + sidecar** — `TaskItem` join, `PerformanceSidecarStore` with reconciliation;
-   Tasks tab renders real reminders **read-only**.
+1. **R1 foundation** ✅ — `ReminderStore` protocol + value types, `EventKitReminderStore`,
+   `FakeReminderStore`, Info.plist usage string, access request. *(Additive.)* Tests:
+   `ReminderStoreTests`.
+2. **R2/R3 read model + sidecar** ✅ — `TaskItem` join, `StoredPerformance` + `PerformanceSidecarStore`
+   (SwiftData) with **orphan reconciliation**, and `TaskService` (fetch → reconcile → join →
+   items / needsRating / ratedItems). *(Additive; not yet wired into the UI.)* Tests:
+   `PerformanceSidecarStoreTests`, `TaskServiceTests` (incl. the reconcile-vs-window edge).
 3. **Analytics rewire** — feed `TaskItem`s into the existing `PerformanceAnalytics` (D16/D17); the
    Performance tab goes live on real data. Keep the pure-analytics tests.
 4. **R4 write-back** — complete/create/edit/delete → EventKit; rating/estimate/actual → sidecar.
