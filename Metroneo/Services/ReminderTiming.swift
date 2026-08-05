@@ -23,6 +23,20 @@ public enum ReminderLead: Equatable, Hashable, Sendable {
         case .custom(let m): return m > 0
         }
     }
+
+    /// Whether a lead of `minutes` is one of the presets (else it's a custom lead).
+    public static func isPreset(_ minutes: Int) -> Bool { presets.contains(minutes) }
+
+    /// A human label for a lead of `minutes` before the time key (D9.1) — used for
+    /// both presets and custom values (e.g. 0 → "At time", 90 → "1h 30m before",
+    /// 2880 → "2 days before").
+    public static func label(minutes: Int) -> String {
+        guard minutes > 0 else { return "At time" }
+        if minutes % 1440 == 0 { let d = minutes / 1440; return "\(d) day\(d == 1 ? "" : "s") before" }
+        if minutes % 60 == 0 { let h = minutes / 60; return "\(h) hour\(h == 1 ? "" : "s") before" }
+        if minutes < 60 { return "\(minutes) min before" }
+        return "\(minutes / 60)h \(minutes % 60)m before"
+    }
 }
 
 /// Pure reminder scheduling math (D9.2 / REM-03, REM-04). The UI/notification

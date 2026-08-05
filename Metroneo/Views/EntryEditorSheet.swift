@@ -46,6 +46,7 @@ struct EntryEditorSheet: View {
     // Reminder (D9)
     @State private var hasReminder: Bool
     @State private var reminderMinutes: Int
+    @State private var customLead: Bool
 
     // Durations (D14)
     @State private var estimatedText: String
@@ -91,6 +92,8 @@ struct EntryEditorSheet: View {
         _endDate = State(initialValue: (defaultDay ?? Date()).addingTimeInterval(30 * 86400))
         _hasReminder = State(initialValue: e.reminderLeadMinutes != nil)
         _reminderMinutes = State(initialValue: e.reminderLeadMinutes ?? 15)
+        // Start in custom mode when the saved lead isn't one of the presets.
+        _customLead = State(initialValue: e.reminderLeadMinutes.map { !ReminderLead.isPreset($0) } ?? false)
         _estimatedText = State(initialValue: e.estimatedDuration.map(String.init) ?? "")
         _actualText = State(initialValue: e.actualDuration.map(String.init) ?? "")
         _types = State(initialValue: e.types)
@@ -205,8 +208,22 @@ struct EntryEditorSheet: View {
                         }
                     }
                 if hasReminder {
-                    Picker("Lead time", selection: $reminderMinutes) {
-                        ForEach(ReminderLead.presets, id: \.self) { Text(Self.leadLabel($0)).tag($0) }
+                    Toggle("Custom early reminder", isOn: $customLead)
+                        .accessibilityIdentifier("customLeadToggle")
+                    if customLead {
+                        HStack {
+                            Text("Minutes before")
+                            Spacer()
+                            TextField("", value: $reminderMinutes, format: .number)
+                                .keyboardType(.numberPad).multilineTextAlignment(.trailing).frame(width: 80)
+                                .accessibilityIdentifier("customLeadField")
+                        }
+                        Text(ReminderLead.label(minutes: max(0, reminderMinutes)))
+                            .font(.caption).foregroundStyle(.secondary)
+                    } else {
+                        Picker("Early reminder", selection: $reminderMinutes) {
+                            ForEach(ReminderLead.presets, id: \.self) { Text(ReminderLead.label(minutes: $0)).tag($0) }
+                        }
                     }
                 }
             }
@@ -355,15 +372,4 @@ struct EntryEditorSheet: View {
     // MARK: - Helpers
 
     private static func blank(on day: Date?) -> Entry { Entry() }
-
-    private static func leadLabel(_ minutes: Int) -> String {
-        switch minutes {
-        case 0: return "At time"
-        case 1..<60: return "\(minutes) min before"
-        case 60: return "1 hour before"
-        case 61..<1440: return "\(minutes / 60) hours before"
-        case 1440: return "1 day before"
-        default: return "\(minutes / 1440) days before"
-        }
-    }
 }

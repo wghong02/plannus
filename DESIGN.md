@@ -396,12 +396,16 @@ list). §4.3's other behaviors — [PP-01], [PP-02], [PP-04], [PP-05], [PP-06] �
 ### D9 — Reminders & notifications · agreed · depends: D6
 A dated entry can carry a reminder that fires a local notification ahead of its time.
 
-- **D9.1** — an entry may carry an optional **reminder** — a lead time *before* its time. The value
-  is chosen from a **fixed preset set plus a Custom option**: presets = **At time (0), 5 min, 15 min,
-  30 min, 1 h, 2 h, 1 day, 2 days** before; **Custom** accepts an arbitrary duration that must be
-  **> 0** (a 0 custom is rejected; "at time" is the 0 preset). Only **dated** entries can have one
-  (undated entries have no reference time): the reminder control is available in the editor **only**
-  when the entry has a `scheduled` or `deadline`, and clearing all dates clears the reminder.
+- **D9.1** — an entry may carry an optional **reminder** — how far *before* its time to notify. The
+  value is chosen from a **fixed preset set plus a Custom option**: presets = **At time (0), 5 min,
+  15 min, 30 min, 1 h, 2 h, 1 day, 2 days** before; **Custom** accepts an arbitrary duration that
+  must be **> 0** (a 0 custom is rejected; "at time" is the 0 preset). In the editor this is labelled
+  **Early reminder** (a preset picker); a **Custom early reminder** toggle reveals a minutes field
+  for an arbitrary value (persisted as the same `reminderLeadMinutes` — a value not in the presets
+  re-opens the editor in custom mode). `ReminderLead.label(minutes:)` formats both presets and
+  custom values (e.g. 90 → "1h 30m before"). Only **dated** entries can have one (undated entries
+  have no reference time): the reminder control is available in the editor **only** when the entry
+  has a `scheduled` or `deadline`, and clearing all dates clears the reminder.
 - **D9.2** — the reference time is the entry's **time key** (D7.1): `scheduled.start` if
   scheduled, else `deadline`. The reminder fires at `reference − leadTime`. *Example:* deadline
   `Fri 17:00`, lead `30 min` ⇒ fires `Fri 16:30`; "at time" ⇒ fires `Fri 17:00`.
@@ -887,6 +891,7 @@ test assertions. This covers **`PREF-UI` and every `(v)` row** below.
 | REM-08 | i | reschedule on **time-key** change only (non-key date change → no reschedule); cancel on complete/delete/remove; **re-arm on un-complete** if still future | D9.5 |
 | REM-09 | u | `dueReminderCount(by:)` = reminders with fire time ≤ the given date and not completed; excludes completed / future / no-reminder / undated | D18.1 |
 | REM-10 | i | the app badge tracks due reminders: adding an overdue incomplete entry → 1; completing it → 0 | D18.2 |
+| REM-11 | u | `ReminderLead.label`/`isPreset` — presets and custom values format correctly (90 → "1h 30m before", 4320 → "3 days before"); 45 is custom; a custom lead flows through `fireDate` like any value | D9.1 |
 
 ### D11 / D13 / D14 — small standalone
 | ID | Tag | Assertion | Covers |

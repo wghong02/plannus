@@ -98,6 +98,28 @@ final class EntryModelTests: XCTestCase {
         XCTAssertFalse(ReminderLead.preset(minutes: 7).isValid)
     }
 
+    func testReminderLeadLabelsAndCustom() { // spec: REM-11
+        // Labels cover presets and arbitrary custom values.
+        XCTAssertEqual(ReminderLead.label(minutes: 0), "At time")
+        XCTAssertEqual(ReminderLead.label(minutes: 5), "5 min before")
+        XCTAssertEqual(ReminderLead.label(minutes: 60), "1 hour before")
+        XCTAssertEqual(ReminderLead.label(minutes: 120), "2 hours before")
+        XCTAssertEqual(ReminderLead.label(minutes: 90), "1h 30m before", "custom mixed h/m")
+        XCTAssertEqual(ReminderLead.label(minutes: 200), "3h 20m before")
+        XCTAssertEqual(ReminderLead.label(minutes: 1440), "1 day before")
+        XCTAssertEqual(ReminderLead.label(minutes: 2880), "2 days before")
+        XCTAssertEqual(ReminderLead.label(minutes: 4320), "3 days before", "custom day multiple")
+
+        // Preset vs custom classification (drives the editor's Custom toggle).
+        XCTAssertTrue(ReminderLead.isPreset(30))
+        XCTAssertFalse(ReminderLead.isPreset(45), "45 min is a custom lead")
+
+        // A custom lead flows through fireDate like any minutes value.
+        let deadline = day("2026-07-21").addingTimeInterval(17 * 3600)
+        let e = Entry(deadline: Deadline(date: deadline, hasTime: true), reminderLeadMinutes: 45)
+        XCTAssertEqual(ReminderTiming.fireDate(for: e), deadline.addingTimeInterval(-45 * 60))
+    }
+
     func testIsOverdue() { // spec: ENT-OVR-01
         let now = day("2026-07-21").addingTimeInterval(12 * 3600) // noon, Jul 21
         // Timed deadline in the past, still open → overdue.
