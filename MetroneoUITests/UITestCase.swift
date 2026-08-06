@@ -23,4 +23,16 @@ class UITestCase: XCTestCase {
         XCTAssertTrue(toggle.waitForExistence(timeout: 5), "toggle exists")
         toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.92, dy: 0.5)).tap()
     }
+
+    /// Waits until a control reports the expected `value` ("1"/"0" for a switch),
+    /// polling so an async state update has a chance to land.
+    @discardableResult
+    func waitForValue(_ element: XCUIElement, _ expected: String, timeout: TimeInterval = 5) -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if (element.value as? String) == expected { return true }
+            usleep(100_000)
+        }
+        return (element.value as? String) == expected
+    }
 }

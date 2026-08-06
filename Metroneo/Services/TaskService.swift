@@ -44,7 +44,9 @@ public final class TaskService: ObservableObject {
         if let days = defaults.object(forKey: Keys.window) as? Double, days > 0 {
             needsRatingWindow = days * 86_400
         }
-        if let ids = defaults.array(forKey: Keys.scope) as? [String], !ids.isEmpty {
+        // A stored scope (including an explicit empty "no lists" selection) wins over
+        // the default; only an *unset* key (array == nil) leaves the default (all).
+        if let ids = defaults.array(forKey: Keys.scope) as? [String] {
             self.listScope = ids
         }
     }
@@ -60,13 +62,17 @@ public final class TaskService: ObservableObject {
         await refresh()
     }
 
-    /// Persists + applies the list scope (`nil`/empty ⇒ all lists), then refreshes (R5.3).
+    /// Persists + applies the list scope **synchronously**, then refreshes (R5.3).
+    /// `nil` ⇒ all lists (the default); an explicit `[]` ⇒ **no** lists; otherwise
+    /// exactly those lists. Empty is preserved, not coerced to "all" — otherwise
+    /// turning off the last remaining list (or the only list) would snap every toggle
+    /// back on ("can't toggle a list off"). The update is synchronous so a bound
+    /// `Toggle` re-reading its `get` doesn't rubber-band to the old value.
     @MainActor
-    public func setListScope(_ ids: [String]?) async {
-        let scope = (ids?.isEmpty ?? true) ? nil : ids
-        listScope = scope
-        if let scope { defaults.set(scope, forKey: Keys.scope) } else { defaults.removeObject(forKey: Keys.scope) }
-        await refresh()
+    public func setListScope(_ ids: [String]?) {
+        listScope = ids
+        if let ids { defaults.set(ids, forKey: Keys.scope) } else { defaults.removeObject(forKey: Keys.scope) }
+        Task { await refresh() }
     }
 
     /// Subscribes to the store's external-change signal (`EKEventStoreChanged`, R1.3)

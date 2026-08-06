@@ -113,13 +113,48 @@ final class TaskServiceTests: XCTestCase {
         sidecar.setMetadata(PerformanceMetadata(rating: 91), for: "p1")
 
         // Narrow the display scope to Work only, then refresh repeatedly.
-        await svc.setListScope(["work"])
+        svc.setListScope(["work"])
         await svc.refresh()
         await svc.refresh()
 
         XCTAssertEqual(sidecar.metadata(for: "p1").rating, 91,
                        "narrowing scope must not delete out-of-scope performance data")
         XCTAssertFalse(svc.ratedItems.contains { $0.id == "p1" }, "but it's hidden from the scoped view")
+    }
+
+    @MainActor
+    func testSetListScopeUpdatesStateSynchronously() { // spec: R5.3 (toggle must not revert)
+        let store = FakeReminderStore(lists: [ReminderList(id: "work", title: "Work", isDefault: true),
+                                              ReminderList(id: "personal", title: "Personal")])
+        let (svc, _) = makeService(store)
+
+        // A bound Toggle re-reads its value right after `set`; the scope change must
+        // land synchronously or the switch rubber-bands back on ("can't toggle off").
+        svc.setListScope(["work"])
+        XCTAssertEqual(svc.listScope, ["work"], "scope narrows synchronously")
+        svc.setListScope(nil)
+        XCTAssertNil(svc.listScope, "clearing to all lists is synchronous too")
+    }
+
+    @MainActor
+    func testEmptyListScopeIsNoneNotAll() async { // spec: R5.3 (turning off the last list sticks)
+        let defaults = UserDefaults(suiteName: "test-\(UUID().uuidString)")!
+        let store = FakeReminderStore(lists: [ReminderList(id: "only", title: "Only", isDefault: true)])
+        let sidecar = try! PerformanceSidecarStore(inMemory: true)
+        let svc = TaskService(store: store, sidecar: sidecar, defaults: defaults)
+        store.save(ReminderData(title: "A task", listId: "only"))
+        await svc.refresh()
+        XCTAssertEqual(svc.items.map(\.title), ["A task"], "the sole list's task shows by default")
+
+        // Turning off the only (last) list is an explicit empty scope — NOT "all".
+        svc.setListScope([])
+        await svc.refresh()
+        XCTAssertEqual(svc.listScope, [], "empty scope is preserved, not coerced to nil/all")
+        XCTAssertTrue(svc.items.isEmpty, "no lists in scope ⇒ nothing shown")
+
+        // And it survives a reload (a fresh service reading the same defaults).
+        let reloaded = TaskService(store: store, sidecar: sidecar, defaults: defaults)
+        XCTAssertEqual(reloaded.listScope, [], "empty scope persists across launches")
     }
 
     @MainActor

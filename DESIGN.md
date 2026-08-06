@@ -200,7 +200,11 @@ lists are the only grouping.
   (writes to EventKit). List order / color are Apple's; Metroneo just reads them.
 - **R5.3** — Metroneo reads all reminder lists by default; a Settings option can
   **narrow the scope** to specific lists, so the app + its analytics focus with the
-  user's choice.
+  user's choice. Scope is stored as: **unset ⇒ all lists** (the default), a **subset
+  ⇒ only those**, and an explicit **empty set ⇒ no lists**. Empty is a real,
+  persisted state — turning a list off (even the last one, or the only one) sticks
+  rather than snapping back to "all"; re-enabling every list collapses back to the
+  clean "all" default. With no lists in scope the app simply shows its empty state.
 
 ### R6 — Completion & the Needs-rating inbox · depends: R2, R3
 - **R6.1** — because a reminder can be completed anywhere, Metroneo surfaces a

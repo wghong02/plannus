@@ -114,7 +114,7 @@ struct CompanionSettingsView: View {
                 var current = Set(taskService.listScope ?? all)
                 if on { current.insert(id) } else { current.remove(id) }
                 let next = all.filter { current.contains($0) }
-                Task { await taskService.setListScope(next.count == all.count ? nil : next) }
+                taskService.setListScope(next.count == all.count ? nil : next)
             }
         )
     }
