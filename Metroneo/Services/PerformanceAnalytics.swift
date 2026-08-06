@@ -8,7 +8,7 @@ public enum PerformancePeriod: String, CaseIterable {
         switch self {
         case .week: return "Week"
         case .month: return "Month"
-        case .threeMonths: return "3 Months"
+        case .threeMonths: return "Quarter"
         case .year: return "Year"
         case .allTime: return "All Time"
         case .custom: return "Custom"
@@ -229,7 +229,7 @@ public enum PerformanceAnalytics {
     }
 
     /// Bucket granularity for the trend chart, chosen from the window span so it
-    /// stays within 12 buckets (Week→daily, Month→weekly, 3 Months→biweekly, up to
+    /// stays within 12 buckets (Week→daily, Month→weekly, Quarter→biweekly, up to
     /// 12mo→monthly, 36mo→quarterly, 72mo→half-year, else yearly).
     public static func granularity(
         for period: PerformancePeriod,

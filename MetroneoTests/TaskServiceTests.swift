@@ -191,7 +191,7 @@ final class TaskServiceTests: XCTestCase {
 
         // Rate the occurrence via its composite id.
         let occId = PerformanceSidecarStore.occurrenceId(seriesId: "rec", occurrenceDate: due)
-        await svc.recordRating(id: occId, rating: 75, notes: nil, actualMinutes: 20)
+        await svc.recordRating(id: occId, rating: 75, notes: nil, estimatedMinutes: nil, actualMinutes: 20)
         XCTAssertTrue(svc.needsRating.isEmpty, "rated occurrence leaves the inbox")
         XCTAssertEqual(svc.ratedItems.first(where: { $0.id == occId })?.rating, 75, "and joins the rated population")
         XCTAssertEqual(sidecar.metadata(for: occId).actualDuration, 20)
@@ -211,6 +211,24 @@ final class TaskServiceTests: XCTestCase {
 
         XCTAssertEqual(svc.needsRating.map(\.title), ["Standup"],
                        "an externally-advanced occurrence is captured for rating")
+    }
+
+    @MainActor
+    func testRecordRatingCapturesBothDurationsForBars() async { // spec: R6.2/D14/D17
+        let store = FakeReminderStore()
+        let (svc, sidecar) = makeService(store)
+        store.seed(ReminderData(id: "d", title: "Task", isCompleted: true, completionDate: Date()))
+        await svc.refresh()
+
+        // A completed reminder is only reachable via the rating sheet; capturing the
+        // estimate there means the estimated-vs-actual bars (D17) get data.
+        await svc.recordRating(id: "d", rating: 80, notes: nil, estimatedMinutes: 30, actualMinutes: 45)
+        XCTAssertEqual(sidecar.metadata(for: "d").estimatedDuration, 30)
+        XCTAssertEqual(sidecar.metadata(for: "d").actualDuration, 45)
+
+        let totals = PerformanceAnalytics.durationTotals(svc.ratedItems, period: .allTime)
+        XCTAssertEqual(totals, DurationTotals(estimated: 30, actual: 45, count: 1),
+                       "rating with both durations populates the estimated-vs-actual bars")
     }
 
     @MainActor

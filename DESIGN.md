@@ -217,12 +217,15 @@ lists are the only grouping.
   completed to appear in the inbox) is a **user-configurable setting** (default ~14
   days). Any completed reminder can still be rated on demand.
 - **R6.2** — rating an item records `rating` (0–100 slider, D11) + optional
-  `performanceNotes` and the **actual duration**; it then leaves the inbox and joins
-  the analytics.
+  `performanceNotes`, the **estimated duration**, and the **actual duration**; it
+  then leaves the inbox and joins the analytics. The rating sheet captures the
+  estimate too (not only the editor), so a completed reminder — reachable only via
+  the sheet — can still get both durations for the D17 bars.
 - **R6.3** — completing a reminder inside Metroneo can open the same rating capture;
   externally-completed ones wait in the inbox.
-- **R6.4** — **estimated** duration is set ahead of time (editor → sidecar);
-  **actual** is captured at rating time.
+- **R6.4** — **estimated** duration is set ahead of time (editor → sidecar) **or
+  adjusted at rating time** (rating sheet → sidecar); **actual** is captured at
+  rating time. Capturing both together is what makes the D17 bars populate.
 - **R6.5 — Browse completed.** The Needs-rating inbox only surfaces completions
   *inside* the look-back window (R6.1a), so rating something finished earlier needs
   its own surface. Tasks offers a **Browse Completed** view: all completed reminders
@@ -291,8 +294,10 @@ population and its settings live in local preferences.
 
 ### D14 — estimated + actual duration
 - Both durations are optional minute values on the sidecar. **Estimated** is set in
-  the editor; **actual** is captured when rating. Together they feed the
-  estimated-vs-actual bars (D17).
+  the editor **or in the rating sheet**; **actual** is captured when rating. Setting
+  the estimate in the rating sheet matters because a completed reminder is only
+  reachable there — otherwise it could never get an estimate to compare. Together
+  they feed the estimated-vs-actual bars (D17).
 
 ### D16 — trend & distribution charts
 - The Performance tab renders two stacked Swift Charts plots over adaptive time
@@ -300,6 +305,9 @@ population and its settings live in local preferences.
   line** with dashed cutoff reference lines, and a **stacked distribution bar** of
   per-level counts. The average is **priority-weighted** (R7.3); the distribution is
   raw counts. Custom labels and colors (D8/D10) drive both.
+- A **period selector** picks the window: **Week / Month / Quarter / Year / All Time
+  / Custom** (the 3-month option reads "Quarter"). The selected period sets the
+  bucket granularity and scopes the stats, bars, and recent list.
 
 ### D17 — estimated vs. actual time bars
 - Two bars — total estimated vs. total actual minutes — across the period's
@@ -416,6 +424,7 @@ Metroneo/
   | | completeCircleMovesReminderToNeedsRating | R4.3/R6 complete circle → write-back → inbox |
   | `CompanionPerformanceUITests` | performanceTabRendersEmptyState | R2 charts wiring / empty state |
   | | ratingFeedsPerformance | R2.3 rate → appears in Recent (sidecar → analytics) |
+  | | ratingWithDurationsShowsEstimatedVsActual | D14/D17 rate w/ both durations → bars appear |
   | `CompanionSettingsUITests` | settingsRendersCompanionControls | R5.3/R6.1a/R7.3 controls render |
   | | listScopeNarrowsTasks | R5.3 scope narrows Tasks + inbox end-to-end |
   | | listScopeTogglesEachListOffAndBackOn | R5.3 each/last list toggles off (no revert) + on |

@@ -60,6 +60,14 @@ final class PerformanceAnalyticsTests: XCTestCase {
         XCTAssertEqual(PerformanceAnalytics.granularity(for: .year), .monthly)
     }
 
+    func testPeriodLabels() {
+        XCTAssertEqual(PerformancePeriod.week.label, "Week")
+        XCTAssertEqual(PerformancePeriod.month.label, "Month")
+        XCTAssertEqual(PerformancePeriod.threeMonths.label, "Quarter", "the 3-month period reads 'Quarter'")
+        XCTAssertEqual(PerformancePeriod.year.label, "Year")
+        XCTAssertEqual(PerformancePeriod.allTime.label, "All Time")
+    }
+
     func testGranularityEscalatesForLongSpans() {
         let now = day("2026-07-22")
         func allTime(earliest key: String) -> PerformanceGranularity {

@@ -224,13 +224,17 @@ public final class TaskService: ObservableObject {
         await refresh()
     }
 
-    /// Records a rating, notes, and actual time together — the rating sheet's Save
-    /// (R6.2) — in one sidecar write + refresh.
+    /// Records a rating, notes, and the estimated + actual time together — the rating
+    /// sheet's Save (R6.2) — in one sidecar write + refresh. Estimated is captured
+    /// here as well as in the editor so a completed reminder (reachable only via this
+    /// sheet) can still get both durations for the estimated-vs-actual bars (D17).
     @MainActor
-    public func recordRating(id: String, rating: Int?, notes: String?, actualMinutes: Int?) async {
+    public func recordRating(id: String, rating: Int?, notes: String?,
+                             estimatedMinutes: Int?, actualMinutes: Int?) async {
         writeMetadata(for: id) {
             $0.rating = rating
             $0.performanceNotes = notes
+            $0.estimatedDuration = estimatedMinutes
             $0.actualDuration = actualMinutes
         }
         await refresh()
