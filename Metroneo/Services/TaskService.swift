@@ -18,6 +18,7 @@ public final class TaskService: ObservableObject {
     private let store: ReminderStore
     private let sidecar: PerformanceSidecarStore
     private let defaults: UserDefaults
+    private let widgetPublisher: WidgetSnapshotPublishing?
     private var cancellables = Set<AnyCancellable>()
 
     private enum Keys {
@@ -35,10 +36,12 @@ public final class TaskService: ObservableObject {
     @Published public var needsRatingWindow: TimeInterval = 14 * 86_400
 
     public init(store: ReminderStore, sidecar: PerformanceSidecarStore,
-                listScope: [String]? = nil, defaults: UserDefaults = .standard) {
+                listScope: [String]? = nil, defaults: UserDefaults = .standard,
+                widgetPublisher: WidgetSnapshotPublishing? = nil) {
         self.store = store
         self.sidecar = sidecar
         self.defaults = defaults
+        self.widgetPublisher = widgetPublisher
         self.listScope = listScope
         // Load persisted companion settings (R5.3 / R6.1a).
         if let days = defaults.object(forKey: Keys.window) as? Double, days > 0 {
@@ -141,6 +144,10 @@ public final class TaskService: ObservableObject {
 
         let ratedReminders = (incomplete + completed).filter { inScope($0.listId) }.map(join).filter(\.isRated)
         ratedItems = ratedReminders + occurrences.filter(\.isRated)
+
+        // Publish a fresh snapshot for the widgets (DESIGN — Widgets).
+        widgetPublisher?.publish(WidgetSnapshotBuilder.make(
+            items: items, needsRating: needsRating, rated: ratedItems, now: now))
     }
 
     /// Whether a list is in the current display scope (`nil` ⇒ all lists, R5.3).

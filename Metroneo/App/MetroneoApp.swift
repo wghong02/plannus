@@ -39,7 +39,10 @@ struct MetroneoApp: App {
             OnboardingGate.markSeen(taskDefaults)
         }
         self.launchDefaults = taskDefaults
-        let service = TaskService(store: reminderStore, sidecar: sidecar, defaults: taskDefaults)
+        // Publish widget snapshots on refresh in the real app (not under UI tests).
+        let widgetPublisher: WidgetSnapshotPublishing? = fakeReminders ? nil : AppWidgetPublisher()
+        let service = TaskService(store: reminderStore, sidecar: sidecar,
+                                  defaults: taskDefaults, widgetPublisher: widgetPublisher)
         service.observeExternalChanges() // refresh on EKEventStoreChanged (R1.3)
         _taskService = StateObject(wrappedValue: service)
     }

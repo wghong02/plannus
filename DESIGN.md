@@ -361,6 +361,41 @@ population and its settings live in local preferences.
 
 ---
 
+## Widgets
+
+A **WidgetKit extension** (`MetroneoWidgetsExtension`) offers four home-screen
+widgets. They never touch EventKit/SwiftData directly: the app **publishes a small
+`WidgetSnapshot`** to a shared **App Group** on every `TaskService.refresh()` (and
+calls `WidgetCenter.reloadAllTimelines()`), and each widget's timeline provider reads
+that snapshot. Everything a widget shows is pre-computed and pre-formatted in
+`WidgetSnapshotBuilder`, so the extension compiles against just one shared file
+(`Metroneo/Widgets/WidgetSnapshot.swift`, a member of both targets).
+
+- **W1 — Tasks** (small / medium): open reminders as rows with the **leading complete
+  circle**. The circle is a `Button(intent:)` → `CompleteReminderIntent`, which
+  completes the reminder via EventKit and optimistically drops it from the snapshot.
+- **W2 — Needs rating** (small / medium): completed-but-unrated reminders as rows
+  (no circle — already done); tapping opens the app to rate.
+- **W3 — Weekly performance** (medium): the week's performance summary + a 7-day bar
+  chart, **or** the week's rated reminders — with an interactive **toggle**
+  (`TogglePerformanceModeIntent`, a shared flag) to switch between the two views.
+- **W4 — Weekly performance & ratings** (large): the performance summary + chart
+  **and** the rated-reminders list together.
+
+The population feeding W3/W4 is the trailing week of rated reminders
+(`PerformanceAnalytics`, default priority weights). Data flow is unit-tested
+(`WidgetSnapshotBuilder` + store round-trip) and integration-tested (`TaskService`
+publishes a snapshot on refresh).
+
+**One-time Xcode setup (Signing & Capabilities):** add the **App Group**
+`group.com.gladiolus.Metroneo` to **both** the `Metroneo` app target and the
+`MetroneoWidgetsExtension` target — without it the app and widget use separate
+`UserDefaults` domains and the widgets render empty. (The shared-file membership, the
+widget's `NSRemindersFullAccessUsageDescription`, and the four widgets themselves are
+already wired.)
+
+---
+
 ## Non-goals
 
 - **Events / time blocks** — Reminders has no event concept.
@@ -399,10 +434,17 @@ Metroneo/
 │                 TrendClassifier, ReminderLead, OnboardingGate
 ├── Storage/      StoredPerformance (@Model) + PerformanceSidecarStore (SwiftData)
 ├── Utilities/    DateTimeUtilities, ColorHex, Palette
-└── Views/        CompanionRootView (tabs), ReminderAccessGate, OnboardingView,
-                  CompanionTasksView, BrowseCompletedView, CompanionReminderEditor,
-                  RatingSheet, CompanionPerformanceView, CompanionSettingsView,
-                  PerformanceCustomizationScreen, SliderField
+├── Views/        CompanionRootView (tabs), ReminderAccessGate, OnboardingView,
+│                 CompanionTasksView, BrowseCompletedView, CompanionReminderEditor,
+│                 RatingSheet, CompanionPerformanceView, CompanionSettingsView,
+│                 PerformanceCustomizationScreen, SliderField, ListFilterMenu
+└── Widgets/      WidgetSnapshot (shared model + App-Group store, in BOTH targets),
+                  WidgetSnapshotBuilder (read model → snapshot), AppWidgetPublisher
+
+MetroneoWidgets/  (MetroneoWidgetsExtension target)
+├── WidgetShared      (timeline provider, AppIntents, reusable row/chart views)
+├── TasksWidget / NeedsRatingWidget / PerformanceWidget / PerformanceLargeWidget
+└── MetroneoWidgetsBundle (@main)
 ```
 
 - **`TaskService`** is the read/write hub: `refresh()` fetches the **full, unscoped**

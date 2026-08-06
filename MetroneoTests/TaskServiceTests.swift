@@ -122,6 +122,30 @@ final class TaskServiceTests: XCTestCase {
         XCTAssertFalse(svc.ratedItems.contains { $0.id == "p1" }, "but it's hidden from the scoped view")
     }
 
+    private final class SpyWidgetPublisher: WidgetSnapshotPublishing {
+        var last: WidgetSnapshot?
+        func publish(_ snapshot: WidgetSnapshot) { last = snapshot }
+    }
+
+    @MainActor
+    func testRefreshPublishesWidgetSnapshot() async { // spec: Widgets
+        let store = FakeReminderStore()
+        let spy = SpyWidgetPublisher()
+        let sidecar = try! PerformanceSidecarStore(inMemory: true)
+        let defaults = UserDefaults(suiteName: "test-\(UUID().uuidString)")!
+        let svc = TaskService(store: store, sidecar: sidecar, defaults: defaults, widgetPublisher: spy)
+        store.save(ReminderData(title: "Open"))
+        store.seed(ReminderData(id: "d1", title: "DoneUnrated", isCompleted: true, completionDate: Date()))
+        store.seed(ReminderData(id: "d2", title: "DoneRated", isCompleted: true, completionDate: Date()))
+        sidecar.setMetadata(PerformanceMetadata(rating: 88), for: "d2")
+
+        await svc.refresh()
+
+        XCTAssertEqual(spy.last?.tasks.map(\.title), ["Open"], "incomplete → widget tasks")
+        XCTAssertEqual(spy.last?.needsRating.map(\.title), ["DoneUnrated"], "unrated completed → needs-rating widget")
+        XCTAssertEqual(spy.last?.recentRated.map(\.title), ["DoneRated"], "rated → performance widget population")
+    }
+
     @MainActor
     func testSetListScopeUpdatesStateSynchronously() { // spec: R5.3 (toggle must not revert)
         let store = FakeReminderStore(lists: [ReminderList(id: "work", title: "Work", isDefault: true),
