@@ -343,13 +343,15 @@ population and its settings live in local preferences.
 - **Settings** — priority weights (R7.3), the Needs-rating window (R6.1a), per-list
   scope (R5.3), the performance customization screen (D8/D10/D12), tutorial replay
   (D13), and About.
-- **Consistent visual system.** All tabs share one palette and layout so they read
-  as one app: a grouped **`systemGroupedBackground`** page with white
-  **`secondarySystemGroupedBackground`** rows/cards, and the same title-to-content
-  top spacing. The `List`-based tabs (Tasks / Settings / Browse) get this from the
-  system; the `ScrollView`-based **Performance** tab matches via the `cardStyle` /
-  `pageBackground()` helpers (Palette), and the large-title tabs share a small top
-  content margin so the first row sits the same distance below the title.
+- **Consistent visual system.** All tabs share one palette so they read as one app:
+  a grouped **`systemGroupedBackground`** page with white
+  **`secondarySystemGroupedBackground`** rows/cards. The `List`-based tabs (Tasks /
+  Settings / Browse) get it from the system; the `ScrollView`-based **Performance**
+  tab matches via the `cardStyle` / `pageBackground()` helpers (Palette). The list
+  tabs use **full-width rows** (`contentMargins(.horizontal, 0)`) so the row content
+  lines up with the large title's leading (the system large title can't be
+  indented), plus a small top content margin so the first row sits a consistent
+  distance below the title.
 
 ---
 

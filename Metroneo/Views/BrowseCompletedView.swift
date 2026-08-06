@@ -40,6 +40,8 @@ struct BrowseCompletedView: View {
                 }
             }
         }
+        // Full-width rows, consistent with the other list tabs.
+        .contentMargins(.horizontal, 0, for: .scrollContent)
         .navigationTitle("Browse Completed")
         .navigationBarTitleDisplayMode(.inline)
         .task { await reload() }

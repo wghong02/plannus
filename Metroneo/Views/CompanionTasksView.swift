@@ -57,8 +57,10 @@ struct CompanionTasksView: View {
                 .accessibilityIdentifier("browseCompletedLink")
             }
         }
-        // A little breathing room between the large title and the first row.
+        // A little breathing room between the large title and the first row, and
+        // trim the side margins so the rows line up with the large title's leading.
         .contentMargins(.top, 12, for: .scrollContent)
+        .contentMargins(.horizontal, 0, for: .scrollContent)
         .overlay {
             if taskService.items.isEmpty && taskService.needsRating.isEmpty {
                 ContentUnavailableView("No reminders", systemImage: "checklist",

@@ -77,8 +77,10 @@ struct CompanionSettingsView: View {
                 HStack { Text("Version"); Spacer(); Text(Self.appVersion).foregroundStyle(.secondary) }
             }
         }
-        // Match the Tasks tab's title-to-content spacing.
+        // Match the Tasks tab: a little top breathing room, and full-width rows
+        // whose leading lines up with the large title.
         .contentMargins(.top, 12, for: .scrollContent)
+        .contentMargins(.horizontal, 0, for: .scrollContent)
         .navigationTitle("Settings")
         .onAppear { windowDays = taskService.needsRatingWindowDays }
     }
