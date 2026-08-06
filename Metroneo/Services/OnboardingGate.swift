@@ -4,7 +4,8 @@ import Foundation
 /// **show-once / replay** semantics are directly unit-testable (TUT-01/TUT-02)
 /// rather than trapped in a `fullScreenCover`.
 public enum OnboardingGate {
-    public static let seenKey = onboardingSeenKey
+    /// First-run "seen" flag key (D13.2); also the `@AppStorage`/launch-arg name.
+    public static let seenKey = "@onboarding_seen"
 
     /// Whether the walkthrough should appear (D13.1): true until it's been seen.
     public static func shouldShow(_ defaults: UserDefaults = .standard) -> Bool {

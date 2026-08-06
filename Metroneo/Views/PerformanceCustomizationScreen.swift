@@ -1,78 +1,9 @@
 import SwiftUI
 
-/// Key for the first-run onboarding "seen" flag (D13.2).
-let onboardingSeenKey = "@onboarding_seen"
-
-/// Settings tab (DESIGN.md §9, v2). Personal Preferences → the combined
-/// **Performance customization** screen (cutoffs + labels + colors + trend,
-/// D8/D10/D12); About/version; a tutorial replay (D13.3); and, in Debug builds,
-/// entry-store management.
-struct SettingsView: View {
-    let database: EntryDatabase
-
-    @EnvironmentObject private var entryService: EntryService
-    @EnvironmentObject private var collectionService: CollectionService
-    @EnvironmentObject private var seriesService: SeriesService
-    @AppStorage(onboardingSeenKey) private var onboardingSeen = false
-    @State private var alert: SettingsAlert?
-
-    private struct SettingsAlert: Identifiable {
-        let id = UUID()
-        let title: String
-        let message: String
-    }
-
-    private static var appVersion: String {
-        let info = Bundle.main.infoDictionary
-        let version = info?["CFBundleShortVersionString"] as? String ?? "—"
-        let build = info?["CFBundleVersion"] as? String ?? "—"
-        return "\(version).\(build)"
-    }
-
-    var body: some View {
-        NavigationStack {
-            List {
-                Section("Personal Preferences") {
-                    NavigationLink("Performance") { PerformanceCustomizationScreen() }
-                        .accessibilityIdentifier("performanceSettingsLink")
-                }
-
-                Section("Help") {
-                    Button("Show Tutorial Again") { onboardingSeen = false }
-                }
-
-                #if DEBUG
-                Section("Database Management") {
-                    Button("Database Stats") {
-                        let s = database.stats()
-                        alert = SettingsAlert(title: "Database Stats",
-                                              message: "Entries: \(s.entryCount)\nCollections: \(s.collectionCount)\nSeries: \(s.seriesCount)\nSchema: v\(s.schemaVersion)")
-                    }
-                    Button("Erase All Data", role: .destructive) {
-                        try? database.reset()
-                        // Refresh the in-memory caches so the UI doesn't keep
-                        // showing (and re-persisting) the erased rows.
-                        entryService.loadEntries()
-                        collectionService.loadCollections()
-                        seriesService.loadSeries()
-                        alert = SettingsAlert(title: "Success", message: "All data has been cleared.")
-                    }
-                }
-                #endif
-
-                Section("About") {
-                    HStack { Text("Version"); Spacer(); Text(Self.appVersion).foregroundStyle(.secondary) }
-                }
-            }
-            .navigationTitle("Settings")
-            .alert(item: $alert) { a in
-                Alert(title: Text(a.title), message: Text(a.message), dismissButton: .default(Text("OK")))
-            }
-        }
-    }
-}
-
-/// The single "Performance customization" screen (D8/D10/D12 consolidated).
+/// The single "Performance customization" screen (D8/D10/D12 consolidated): rating
+/// cutoffs, per-level labels + colors, and the overall-trend thresholds/labels.
+/// Carried over from v1 unchanged — it reads/writes only the preferences and
+/// customization services, so it's shared by the companion Settings tab.
 struct PerformanceCustomizationScreen: View {
     @EnvironmentObject private var preferences: PerformancePreferencesService
     @EnvironmentObject private var custom: PerformanceCustomizationService

@@ -37,11 +37,41 @@ final class TaskServiceTests: XCTestCase {
         await svc.refresh()
         XCTAssertEqual(svc.needsRating.map(\.title), ["Task"])
 
-        svc.rate(id: "d", rating: 70)
-        await svc.refresh()
+        await svc.rate(id: "d", rating: 70)
         XCTAssertTrue(svc.needsRating.isEmpty, "a rated item leaves the Needs-rating inbox")
         XCTAssertEqual(svc.ratedItems.map(\.title), ["Task"])
         XCTAssertEqual(sidecar.metadata(for: "d").rating, 70)
+    }
+
+    @MainActor
+    func testCreateEditCompleteRateDelete() async { // spec: R4
+        let store = FakeReminderStore()
+        let (svc, sidecar) = makeService(store)
+
+        // Create.
+        let saved = await svc.save(ReminderData(title: "Draft"))
+        let id = saved!.id
+        XCTAssertEqual(svc.items.map(\.title), ["Draft"], "a created reminder shows in items")
+
+        // Edit (title + priority).
+        await svc.save(ReminderData(id: id, title: "Final", priority: .high))
+        XCTAssertEqual(svc.items.first?.title, "Final")
+        XCTAssertEqual(svc.items.first?.priority, .high)
+
+        // Complete → leaves items, enters the inbox.
+        await svc.setCompleted(id: id, true)
+        XCTAssertTrue(svc.items.isEmpty)
+        XCTAssertEqual(svc.needsRating.map(\.title), ["Final"])
+
+        // Rate → leaves the inbox, joins the rated population.
+        await svc.rate(id: id, rating: 80)
+        XCTAssertTrue(svc.needsRating.isEmpty)
+        XCTAssertEqual(svc.ratedItems.first?.rating, 80)
+
+        // Delete → gone, and its sidecar data is dropped.
+        await svc.delete(id: id)
+        XCTAssertTrue(svc.ratedItems.isEmpty)
+        XCTAssertEqual(sidecar.metadata(for: id), .empty)
     }
 
     @MainActor

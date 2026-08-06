@@ -38,6 +38,9 @@ public struct TaskItem: Identifiable, Equatable, Sendable {
     public var priority: ReminderPriority
     public var listId: String
     public var isRecurring: Bool
+    /// Early-reminder alarms as minutes-before (R4.2) — carried so the editor can
+    /// round-trip them; not used by analytics.
+    public var alarmOffsetMinutes: [Int]
     // From the sidecar (Metroneo):
     public var rating: Int?
     public var performanceNotes: String?
@@ -60,9 +63,19 @@ public struct TaskItem: Identifiable, Equatable, Sendable {
         priority = r.priority
         listId = r.listId
         isRecurring = r.isRecurring
+        alarmOffsetMinutes = r.alarmOffsetMinutes
         rating = m.rating
         performanceNotes = m.performanceNotes
         estimatedDuration = m.estimatedDuration
         actualDuration = m.actualDuration
+    }
+
+    /// The reminder half of the join, for write-back through the store (R4).
+    public var reminderData: ReminderData {
+        ReminderData(
+            id: id, title: title, notes: notes, dueDate: dueDate, hasDueTime: hasDueTime,
+            isCompleted: isCompleted, completionDate: completionDate, priority: priority,
+            listId: listId, isRecurring: isRecurring, alarmOffsetMinutes: alarmOffsetMinutes
+        )
     }
 }

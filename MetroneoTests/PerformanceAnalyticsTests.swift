@@ -140,56 +140,57 @@ final class PerformanceAnalyticsTests: XCTestCase {
         XCTAssertEqual(PerformanceAnalytics.granularity(for: .custom, customStart: day("2026-01-01"), now: now), .monthly)
     }
 
-    // MARK: - Recent list scoping (windowedRated)
-
-    private func ratedEntry(_ rating: Int, _ completedKey: String) -> Entry {
-        Entry(title: completedKey, completion: Completion(completedAt: day(completedKey)), rating: Rating(performanceRating: rating))
-    }
+    // MARK: - Recent list scoping (windowedRated over TaskItems)
 
     func testWindowedRatedScopesToSelectedPeriod() {
         let now = day("2026-07-22")
-        let entries = [
-            ratedEntry(90, "2026-07-20"),   // in week + month
-            ratedEntry(70, "2026-07-01"),   // in month, not week
-            ratedEntry(50, "2026-01-01"),   // older than both
-            Entry(title: "unrated", completion: Completion(completedAt: day("2026-07-21")), rating: nil),
+        let items = [
+            item(90, .none, "2026-07-20"),   // in week + month
+            item(70, .none, "2026-07-01"),   // in month, not week
+            item(50, .none, "2026-01-01"),   // older than both
+            item(nil, .none, "2026-07-21"),  // unrated → excluded
         ]
-        XCTAssertEqual(PerformanceAnalytics.windowedRated(entries, period: .week, now: now).map(\.title),
-                       ["2026-07-20"], "week keeps only in-week rated entries")
-        XCTAssertEqual(PerformanceAnalytics.windowedRated(entries, period: .month, now: now).map(\.title),
+        XCTAssertEqual(PerformanceAnalytics.windowedRated(items, period: .week, now: now).map(\.title),
+                       ["2026-07-20"], "week keeps only in-week rated items")
+        XCTAssertEqual(PerformanceAnalytics.windowedRated(items, period: .month, now: now).map(\.title),
                        ["2026-07-20", "2026-07-01"], "month is newest-first and in-window")
-        XCTAssertEqual(PerformanceAnalytics.windowedRated(entries, period: .allTime, now: now).map(\.title),
-                       ["2026-07-20", "2026-07-01", "2026-01-01"], "allTime keeps every rated entry; unrated excluded")
+        XCTAssertEqual(PerformanceAnalytics.windowedRated(items, period: .allTime, now: now).map(\.title),
+                       ["2026-07-20", "2026-07-01", "2026-01-01"], "allTime keeps every rated item; unrated excluded")
+    }
+
+    func testWindowedRatedRespectsLimit() {
+        let now = day("2026-07-22")
+        let items = (1...15).map { i -> TaskItem in
+            let date = Calendar.current.date(byAdding: .day, value: -i, to: now)!
+            let r = ReminderData(id: "e\(i)", title: "e\(i)", isCompleted: true, completionDate: date)
+            return TaskItem(reminder: r, metadata: PerformanceMetadata(rating: 60))
+        }
+        XCTAssertEqual(PerformanceAnalytics.windowedRated(items, period: .allTime, now: now, limit: 5).count, 5)
     }
 
     // MARK: - Estimated vs Actual duration totals (D17)
 
-    private func durationEntry(_ est: Int?, _ act: Int?, _ completedKey: String) -> Entry {
-        Entry(title: "d", estimatedDuration: est, actualDuration: act,
-              completion: Completion(completedAt: day(completedKey)))
-    }
-
     func testDurationTotalsSumsBothDurationsInWindow() { // spec: DUR-05
         let now = day("2026-07-22")
-        let entries = [
-            durationEntry(30, 45, "2026-07-20"), // both, in week + month
-            durationEntry(60, 50, "2026-07-01"), // both, in month only
-            durationEntry(20, nil, "2026-07-19"), // estimate only → excluded
-            durationEntry(nil, 40, "2026-07-19"), // actual only → excluded
-            durationEntry(15, 15, "2026-01-01"), // both, older than a month
+        let items = [
+            item(nil, .none, "2026-07-20", estimated: 30, actual: 45), // both, in week + month
+            item(nil, .none, "2026-07-01", estimated: 60, actual: 50), // both, in month only
+            item(nil, .none, "2026-07-19", estimated: 20, actual: nil), // estimate only → excluded
+            item(nil, .none, "2026-07-19", estimated: nil, actual: 40), // actual only → excluded
+            item(nil, .none, "2026-01-01", estimated: 15, actual: 15), // both, older than a month
         ]
 
-        let month = PerformanceAnalytics.durationTotals(entries, period: .month, now: now)
-        XCTAssertEqual(month.count, 2, "only entries with both durations, in-window")
+        let month = PerformanceAnalytics.durationTotals(items, period: .month, now: now)
+        XCTAssertEqual(month.count, 2, "only items with both durations, in-window")
         XCTAssertEqual(month.estimated, 90)
         XCTAssertEqual(month.actual, 95)
 
-        let week = PerformanceAnalytics.durationTotals(entries, period: .week, now: now)
-        XCTAssertEqual(week.count, 1, "week excludes the 3-weeks-ago entry")
+        let week = PerformanceAnalytics.durationTotals(items, period: .week, now: now)
+        XCTAssertEqual(week.count, 1, "week excludes the 3-weeks-ago item")
         XCTAssertEqual(week.estimated, 30)
         XCTAssertEqual(week.actual, 45)
 
-        let all = PerformanceAnalytics.durationTotals(entries, period: .allTime, now: now)
+        let all = PerformanceAnalytics.durationTotals(items, period: .allTime, now: now)
         XCTAssertEqual(all.count, 3)
         XCTAssertEqual(all.estimated, 105)
         XCTAssertEqual(all.actual, 110)
@@ -197,19 +198,10 @@ final class PerformanceAnalyticsTests: XCTestCase {
 
     func testDurationTotalsEmptyWhenNoneQualify() { // spec: DUR-05
         let now = day("2026-07-22")
-        let entries = [durationEntry(30, nil, "2026-07-20"), durationEntry(nil, nil, "2026-07-20")]
-        let totals = PerformanceAnalytics.durationTotals(entries, period: .month, now: now)
+        let items = [item(nil, .none, "2026-07-20", estimated: 30, actual: nil),
+                     item(nil, .none, "2026-07-20", estimated: nil, actual: nil)]
+        let totals = PerformanceAnalytics.durationTotals(items, period: .month, now: now)
         XCTAssertEqual(totals, DurationTotals(estimated: 0, actual: 0, count: 0))
-    }
-
-    func testWindowedRatedRespectsLimit() {
-        let now = day("2026-07-22")
-        let entries = (1...15).map { i in
-            Entry(title: "e\(i)",
-                  completion: Completion(completedAt: Calendar.current.date(byAdding: .day, value: -i, to: now)!),
-                  rating: Rating(performanceRating: 60))
-        }
-        XCTAssertEqual(PerformanceAnalytics.windowedRated(entries, period: .allTime, now: now, limit: 5).count, 5)
     }
 
     // MARK: - Priority-weighted average + TaskItem population (DESIGNV2 R7.3 / R2)

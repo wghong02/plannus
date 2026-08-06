@@ -1,11 +1,10 @@
+#if DEBUG
 import Foundation
 import Combine
-@testable import Metroneo
 
-/// In-memory ``ReminderStore`` for tests (DESIGNV2 R1.2) — no EventKit, no system
-/// prompt. The join / sidecar / analytics layers are tested against this. *(When
-/// the companion UI lands, a DEBUG copy in the app target will back UI-test
-/// injection via a launch arg; for now it lives with the unit tests.)*
+/// In-memory ``ReminderStore`` (DEBUG only) — backs unit tests (via `@testable`)
+/// and, when launched with `-FAKE-REMINDERS`, the app itself, so the companion UI
+/// runs in previews / the Simulator / UI tests without EventKit or its prompt (R1.2).
 final class FakeReminderStore: ReminderStore {
     private var reminders: [String: ReminderData] = [:]
     private var reminderLists: [ReminderList]
@@ -65,13 +64,27 @@ final class FakeReminderStore: ReminderStore {
 
     var changes: AnyPublisher<Void, Never> { subject.eraseToAnyPublisher() }
 
-    // MARK: - Test seeding
+    // MARK: - Seeding
 
     /// Inserts a reminder as-is (e.g. a completed one with an explicit date).
     func seed(_ data: ReminderData) {
         var d = data
         if d.id.isEmpty { d.id = UUID().uuidString }
         reminders[d.id] = d
+    }
+
+    /// A demo store for previews / UI tests: two lists with a mix of open,
+    /// overdue, and recently-completed-unrated reminders.
+    static func seeded() -> FakeReminderStore {
+        let work = ReminderList(id: "work", title: "Work", isDefault: true)
+        let personal = ReminderList(id: "personal", title: "Personal")
+        let store = FakeReminderStore(lists: [work, personal])
+        let now = Date()
+        store.seed(ReminderData(id: "w1", title: "Ship release notes", dueDate: now.addingTimeInterval(3600), hasDueTime: true, priority: .high, listId: "work"))
+        store.seed(ReminderData(id: "w2", title: "Review PR", dueDate: now.addingTimeInterval(-3600), hasDueTime: true, priority: .medium, listId: "work"))
+        store.seed(ReminderData(id: "p1", title: "Buy groceries", priority: .low, listId: "personal"))
+        store.seed(ReminderData(id: "p2", title: "Call dentist", isCompleted: true, completionDate: now.addingTimeInterval(-7200), priority: .none, listId: "personal"))
+        return store
     }
 
     private func listMatch(_ r: ReminderData, _ ids: [String]?) -> Bool {
@@ -83,3 +96,4 @@ final class FakeReminderStore: ReminderStore {
         items.sorted { $0.title < $1.title }
     }
 }
+#endif

@@ -258,18 +258,67 @@ Phased so the app keeps building throughout; deletions come last.
    The old `[Entry]` path is unchanged (weight 1 = plain mean). *(Analytics are ready; the Performance
    tab is wired to real data when the UI swaps over.)* Tests: weighted average, TaskItem samples/
    trend/durations/windowedRated, priority-weight persistence + legacy decode.
-4. **R4 write-back** — complete/create/edit/delete → EventKit; rating/estimate/actual → sidecar.
-5. **R6 Needs-rating inbox** + **R5 list grouping** + **R7 priority picker**; retire the completion
-   sheet's in-app-only assumption.
-6. **Delete** — `EntryDatabase`/`StoredEntryModels`, `ReminderScheduler`/`ReminderTiming`,
-   `Recurrence`/`RecurrenceEngine`/`SeriesService`, `CalendarGrouping`/`CalendarView`,
-   `CollectionService`/`EntryCollection`, the badge/overdue code, and the dead parts of
-   `Entry`/`EntryQuery`.
+4. **R4 write-back** ✅ — `TaskService` gains create/edit/`setCompleted`/`delete`/`createList`
+   (forward to the store) and async rating/estimate/actual (sidecar); every mutation refreshes the
+   joined lists, and delete drops the sidecar row. *(Service-level; the editor UI wires to these in
+   the next phase.)* Tests: `testCreateEditCompleteRateDelete` (the full lifecycle).
+5. **Companion UI** (behind `-COMPANION`, in progress) —
+   - ✅ **R6 Needs-rating inbox** + **R5 list grouping** + rating sheet. `CompanionRootView` →
+     `ReminderAccessGate` → `CompanionTasksView`: a pinned "Needs rating" inbox over one
+     expandable `DisclosureGroup` per Reminders list; the row complete toggle writes back via
+     `TaskService.setCompleted`; tapping an inbox item opens `RatingSheet` (rating slider +
+     actual-time + notes → `recordRating` → sidecar). Overdue open reminders read red.
+     UI tests: `CompanionTasksUITests` (render/expand groups + inbox, rate-from-inbox);
+     complete→write-back→inbox is covered at the service level (`testCreateEditCompleteRateDelete`).
+   - ✅ **R4 Editor** — `CompanionReminderEditor` creates/edits a reminder (title/notes/due +
+     `hasDueTime`, 4-way **R7 priority** segmented picker, list picker, early-reminder alarm →
+     EventKit) with estimated duration → sidecar; delete + read-only recurrence note. Reached via
+     an Add button and tap-to-edit on a row. UI tests: create-appears-in-default-list,
+     tap-row-opens-prefilled-editor.
+   - ✅ **R2/R7 Performance tab** — `CompanionPerformanceView` renders the same trend / distribution
+     / estimated-vs-actual charts off `TaskService.ratedItems`, with the **priority-weighted**
+     average (`custom.priorityWeights`). `CompanionRootView` is now a `TabView` (Tasks +
+     Performance), both access-gated. UI tests: empty-state render, rate-in-Tasks →
+     appears-in-Performance-Recent (end-to-end sidecar → analytics).
+   - ✅ **R5.3/R6.1a/R7.3 Settings** — `CompanionSettingsView`: priority-weight steppers (persist via
+     customization), a needs-rating window stepper and per-list scope toggles (persist on
+     `TaskService` via an injected defaults suite — volatile under `-FAKE-REMINDERS` so tests stay
+     deterministic), plus the carried-over Performance customization screen + About. UI tests:
+     controls render, list-scope narrows Tasks end-to-end.
+   - ⬜ **Onboarding** re-themed for Reminders access (the `ReminderAccessGate` already covers the
+     functional grant flow; a themed first-run tutorial is the remaining polish).
+6. **Delete** ✅ — the whole `Entry` app is gone and the companion is the default (no `-COMPANION`
+   gate). Removed: `Entry`/`EntryCollection`/`Recurrence` models; `EntryService`/`CollectionService`/
+   `SeriesService`/`ReminderScheduler`/`CalendarGrouping`/`EntryQuery`/`NotificationRouter` services;
+   `EntryDatabase`/`StoredEntryModels` storage; `RootView`/`CalendarView`/`CollectionDetailView`/
+   `TaskListView`/`EntryEditorSheet`/`EntrySheet`/`EntryRow`/`CompletionSheet`/`OnboardingView`/
+   `PerformanceView`/`SettingsView` views; the `ReminderTiming` scheduling enum (badge/overdue
+   math) and the dead `Log` util; plus all Entry-era unit + UI tests. **Kept & repurposed:**
+   `ReminderLead` (early-reminder presets, now in `ReminderLead.swift`), `PerformanceAnalytics`
+   (Entry overloads stripped — `TaskItem`-only), `PerformanceCustomizationScreen` (extracted from
+   `SettingsView` into its own file), `OnboardingGate` (self-contained `seenKey`), and all shared
+   perf/color/date utilities. `MetroneoApp` now boots only the companion services. Result: **55
+   unit + 8 companion UI tests green**, no `Entry` symbols remain.
 
 ### Test plan (sketch)
 - **`FakeReminderStore`** seeds reminders/lists in memory → unit + integration tests for the
   **join**, **orphan reconciliation** (R3.2), **write-back** round-trips (R4), the **Needs-rating**
   query (R6.1), and list grouping (R5) — no EventKit, no prompt.
 - **Analytics tests carry over** (D16/D17/customization) with `TaskItem` inputs.
-- **UI tests** inject the fake store via a launch arg (as `-UITEST-RESET` does today), so flows run
-  without the Reminders permission dialog.
+- **UI tests** inject the fake store via a launch arg (`-FAKE-REMINDERS`), so flows run without the
+  Reminders permission dialog. Companion coverage:
+
+  | Suite | Test | Covers |
+  |---|---|---|
+  | `CompanionTasksUITests` | renderGroupsAndNeedsRating | R2/R5 list groups, expand, inbox |
+  | | rateFromNeedsRatingInbox | R6.2 rating sheet → sidecar |
+  | | createReminderAppearsInDefaultList | R4.1 create → write-back → default list |
+  | | tapRowOpensPrefilledEditor | R4.2 tap-to-edit, pre-filled |
+  | `CompanionPerformanceUITests` | performanceTabRendersEmptyState | R2 charts wiring / empty state |
+  | | ratingFeedsPerformance | R2.3 rate → appears in Recent (sidecar → analytics) |
+  | `CompanionSettingsUITests` | settingsRendersCompanionControls | R5.3/R6.1a/R7.3 controls render |
+  | | listScopeNarrowsTasks | R5.3 scope narrows Tasks + inbox end-to-end |
+
+  Completion write-back (complete → Needs-rating) is covered at the service level
+  (`TaskServiceTests.testCreateEditCompleteRateDelete`) — the complete toggle sits inside a
+  collapsible `DisclosureGroup` row where XCUITest's nested-button discovery is unreliable.

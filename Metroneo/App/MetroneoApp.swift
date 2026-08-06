@@ -1,73 +1,43 @@
 import SwiftUI
 
-/// App entry point (DESIGN.md §10, v2). Boots the v2 entry store, wires reminder
-/// notifications, and shares the services through the environment.
+/// App entry point (DESIGNV2). Boots the Reminders-backed companion: a
+/// `ReminderStore` (real EventKit, or an in-memory fake for previews / UI tests)
+/// joined with a local performance sidecar, shared through the environment.
 @main
 struct MetroneoApp: App {
-    @StateObject private var entryService: EntryService
-    @StateObject private var collectionService: CollectionService
-    @StateObject private var seriesService: SeriesService
     @StateObject private var preferences = PerformancePreferencesService()
     @StateObject private var customization = PerformanceCustomizationService()
-    @StateObject private var reminderScheduler: ReminderScheduler
-    @StateObject private var router: NotificationRouter
-
-    private let database: EntryDatabase
+    @StateObject private var taskService: TaskService
 
     init() {
-        // A failure to open the on-disk store is fatal — no silent fallback (§10).
-        let db = try! EntryDatabase()
-        self.database = db
-
-        // UI tests launch with a clean store for deterministic flows.
-        if CommandLine.arguments.contains("-UITEST-RESET") { try? db.reset() }
-
+        // `-FAKE-REMINDERS` swaps in the in-memory fake (previews / UI tests) so the
+        // companion runs without EventKit's permission prompt.
+        let fakeReminders = CommandLine.arguments.contains("-FAKE-REMINDERS")
+        let reminderStore: ReminderStore
         #if DEBUG
-        // Test-support seed: rated entries across recent weeks so the Performance
-        // charts (D16) have data to render (used by MetroneoUITests).
-        if CommandLine.arguments.contains("-SEED-PERF") {
-            try? db.reset()
-            let cal = Calendar.current
-            let data: [(Int, Int)] = [(1, 88), (2, 95), (3, 72), (8, 64), (9, 60), (10, 91), (15, 55), (18, 78), (24, 83), (30, 45)]
-            for (daysAgo, rating) in data {
-                let date = cal.date(byAdding: .day, value: -daysAgo, to: Date())!
-                try? db.upsertEntry(Entry(title: "Session \(daysAgo)d ago",
-                                          completion: Completion(completedAt: date),
-                                          rating: Rating(performanceRating: rating)))
-            }
-        }
+        reminderStore = fakeReminders ? FakeReminderStore.seeded() : EventKitReminderStore()
+        #else
+        reminderStore = EventKitReminderStore()
         #endif
-
-        let router = NotificationRouter()
-        let scheduler = ReminderScheduler(router: router)
-        _router = StateObject(wrappedValue: router)
-        _reminderScheduler = StateObject(wrappedValue: scheduler)
-
-        let entries = EntryService(db: db, scheduler: scheduler)
-        let collections = CollectionService(db: db)
-        // Keep the collection cache coherent when an entry is deleted (D1.5/D5.6):
-        // the store drops the id from every collection; this mirrors it in memory.
-        entries.deletionObserver = collections
-        _entryService = StateObject(wrappedValue: entries)
-        _collectionService = StateObject(wrappedValue: collections)
-        _seriesService = StateObject(wrappedValue: SeriesService(db: db, entries: entries))
+        let sidecar = try! PerformanceSidecarStore(inMemory: fakeReminders)
+        // UI tests get a volatile defaults suite (cleared each launch) so companion
+        // settings — needs-rating window, list scope — don't leak across runs.
+        let taskDefaults: UserDefaults
+        if fakeReminders, let suite = UserDefaults(suiteName: "companion.fake") {
+            suite.removePersistentDomain(forName: "companion.fake")
+            taskDefaults = suite
+        } else {
+            taskDefaults = .standard
+        }
+        _taskService = StateObject(wrappedValue: TaskService(store: reminderStore, sidecar: sidecar, defaults: taskDefaults))
     }
 
     var body: some Scene {
         WindowGroup {
-            RootView(database: database)
-                .environmentObject(entryService)
-                .environmentObject(collectionService)
-                .environmentObject(seriesService)
+            CompanionRootView()
+                .environmentObject(taskService)
                 .environmentObject(preferences)
                 .environmentObject(customization)
-                .environmentObject(reminderScheduler)
-                .environmentObject(router)
-                .onAppear {
-                    entryService.loadEntries()
-                    collectionService.loadCollections()
-                    seriesService.loadSeries()
-                }
         }
     }
 }
