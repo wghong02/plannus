@@ -113,7 +113,12 @@ public final class EventKitReminderStore: ReminderStore {
     private func apply(_ data: ReminderData, to ek: EKReminder) {
         ek.title = data.title
         ek.notes = data.notes
-        ek.priority = Self.ekPriority(data.priority)
+        // Stay faithful to Apple's 1–9 priority (R7.1): only rewrite the numeric
+        // value when the user actually changed the bucket, so a reminder at, say,
+        // priority 3 isn't silently normalized to 1 on an unrelated edit.
+        if Self.priority(from: ek.priority) != data.priority {
+            ek.priority = Self.ekPriority(data.priority)
+        }
         if let due = data.dueDate {
             let fields: Set<Calendar.Component> = data.hasDueTime ? [.year, .month, .day, .hour, .minute] : [.year, .month, .day]
             ek.dueDateComponents = Calendar.current.dateComponents(fields, from: due)

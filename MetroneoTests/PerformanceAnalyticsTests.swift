@@ -9,12 +9,12 @@ final class PerformanceAnalyticsTests: XCTestCase {
         RatedSample(completedAt: day(completedKey), performanceRating: rating)
     }
 
-    func testLevelClassification() {
+    func testLevelClassification() { // defaults: fair 50 / good 60 / veryGood 75 / excellent 90
         let c = PerformanceCutoffs.defaults
         XCTAssertEqual(PerformancePreferencesService.level(for: 95, cutoffs: c), .excellent)
         XCTAssertEqual(PerformancePreferencesService.level(for: 82, cutoffs: c), .veryGood)
-        XCTAssertEqual(PerformancePreferencesService.level(for: 76, cutoffs: c), .good)
-        XCTAssertEqual(PerformancePreferencesService.level(for: 61, cutoffs: c), .fair)
+        XCTAssertEqual(PerformancePreferencesService.level(for: 70, cutoffs: c), .good)
+        XCTAssertEqual(PerformancePreferencesService.level(for: 55, cutoffs: c), .fair)
         XCTAssertEqual(PerformancePreferencesService.level(for: 30, cutoffs: c), .poor)
     }
 
@@ -92,27 +92,17 @@ final class PerformanceAnalyticsTests: XCTestCase {
         XCTAssertEqual(series.last?.period, "Jul 23")
     }
 
-    func testOverallTrendNeutralBand() {
-        func pt(_ avg: Double) -> PerformanceDataPoint { PerformanceDataPoint(period: "\(avg)", average: avg, taskCount: 1, trend: .stable) }
-        XCTAssertEqual(PerformanceAnalytics.overallTrend([pt(80), pt(82)]), "Neutral")
-        XCTAssertEqual(PerformanceAnalytics.overallTrend([pt(80), pt(84)]), "Neutral")
-        XCTAssertEqual(PerformanceAnalytics.overallTrend([pt(80), pt(88)]), "Improving")
-        XCTAssertEqual(PerformanceAnalytics.overallTrend([pt(80), pt(72)]), "Declining")
-        XCTAssertEqual(PerformanceAnalytics.overallTrend([pt(0), pt(50)]), "Improving")
-    }
-
-    func testEmptyBucketsIgnoredInTrendAndBest() {
+    func testEmptyBucketsIgnoredInBest() {
         func pt(_ avg: Double, _ count: Int) -> PerformanceDataPoint { PerformanceDataPoint(period: "\(avg)-\(count)", average: avg, taskCount: count, trend: .stable) }
-        XCTAssertEqual(PerformanceAnalytics.overallTrend([pt(0, 0), pt(80, 2), pt(80, 3)]), "Neutral")
-        XCTAssertEqual(PerformanceAnalytics.overallTrend([pt(0, 0), pt(60, 2), pt(90, 3)]), "Improving")
+        // Empty (zero-count) buckets can't win "Best Period".
         XCTAssertEqual(PerformanceAnalytics.best([pt(0, 0), pt(60, 2), pt(90, 3)])?.average, 90)
         XCTAssertNil(PerformanceAnalytics.best([pt(0, 0), pt(0, 0)]))
-        XCTAssertEqual(PerformanceAnalytics.overallTrend([pt(0, 0), pt(0, 0)]), "N/A")
     }
 
     func testTrendSeriesLevelCountsDistribution() {
         let now = day("2026-07-22")
-        let ratings = [95, 82, 76, 61, 30]
+        // One rating per level under defaults (fair 50 / good 60 / veryGood 75 / excellent 90).
+        let ratings = [95, 80, 65, 55, 30]
         let samples = ratings.map { RatedSample(completedAt: now, performanceRating: $0) }
 
         let last = PerformanceAnalytics.trendSeries(samples, period: .week, now: now).last!
@@ -124,9 +114,11 @@ final class PerformanceAnalyticsTests: XCTestCase {
         XCTAssertEqual(counts[.fair], 1)
         XCTAssertEqual(counts[.poor], 1)
 
-        let custom = PerformanceCutoffs(fair: 50, good: 60, veryGood: 70, excellent: 90)
+        // Custom cutoffs reclassify the same ratings: 65 and 80 both land in Very Good.
+        let custom = PerformanceCutoffs(fair: 40, good: 50, veryGood: 60, excellent: 85)
         let lastCustom = PerformanceAnalytics.trendSeries(samples, period: .week, cutoffs: custom, now: now).last!
         let customCounts = Dictionary(uniqueKeysWithValues: lastCustom.levelCounts.map { ($0.level, $0.count) })
+        XCTAssertEqual(customCounts[.excellent], 1)
         XCTAssertEqual(customCounts[.veryGood], 2)
         XCTAssertEqual(customCounts[.good], 1)
         XCTAssertEqual(customCounts[.poor], 1)

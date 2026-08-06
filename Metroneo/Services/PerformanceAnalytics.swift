@@ -295,19 +295,6 @@ public enum PerformanceAnalytics {
         series.filter { $0.taskCount > 0 }.max { $0.average < $1.average }
     }
 
-    /// Overall trend comparing the last vs first *non-empty* bucket average.
-    /// A percentage change (relative to the first bucket) within ±5% is Neutral.
-    /// Empty buckets are skipped so a leading gap doesn't read as "Improving".
-    public static func overallTrend(_ series: [PerformanceDataPoint]) -> String {
-        let nonEmpty = series.filter { $0.taskCount > 0 }
-        guard nonEmpty.count > 1, let first = nonEmpty.first, let last = nonEmpty.last else { return "N/A" }
-        guard first.average != 0 else { return last.average > 0 ? "Improving" : "Neutral" }
-        let percentChange = (last.average - first.average) / first.average * 100
-        if percentChange > 5 { return "Improving" }
-        if percentChange < -5 { return "Declining" }
-        return "Neutral"
-    }
-
     // MARK: - Helpers
 
     /// Start of the analysis window. For All Time this is the earliest completion

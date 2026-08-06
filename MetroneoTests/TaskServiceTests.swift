@@ -8,7 +8,10 @@ final class TaskServiceTests: XCTestCase {
 
     private func makeService(_ store: FakeReminderStore) -> (TaskService, PerformanceSidecarStore) {
         let sidecar = try! PerformanceSidecarStore(inMemory: true)
-        return (TaskService(store: store, sidecar: sidecar), sidecar)
+        // Isolated defaults per test — list scope / window / recurring-due state must
+        // not leak across tests via UserDefaults.standard.
+        let defaults = UserDefaults(suiteName: "test-\(UUID().uuidString)")!
+        return (TaskService(store: store, sidecar: sidecar, defaults: defaults), sidecar)
     }
 
     @MainActor
@@ -87,7 +90,7 @@ final class TaskServiceTests: XCTestCase {
     }
 
     @MainActor
-    func testRefreshReconcilesOrphanSidecar() async { // spec: R3.2
+    func testRefreshReconcilesOrphanSidecar() async { // spec: R3.2 (two-sync grace)
         let store = FakeReminderStore()
         let (svc, sidecar) = makeService(store)
         // Sidecar carries data for a reminder that no longer exists.
@@ -95,7 +98,98 @@ final class TaskServiceTests: XCTestCase {
         store.save(ReminderData(title: "Real"))
 
         await svc.refresh()
-        XCTAssertEqual(sidecar.metadata(for: "ghost"), .empty, "refresh prunes the orphaned sidecar row")
+        XCTAssertEqual(sidecar.metadata(for: "ghost").rating, 55, "first sync marks pending, doesn't prune")
+        await svc.refresh()
+        XCTAssertEqual(sidecar.metadata(for: "ghost"), .empty, "second consecutive sync prunes the orphan")
+    }
+
+    @MainActor
+    func testListScopeDoesNotPruneOutOfScopeSidecar() async { // spec: R3.2 (scope-independent reconcile)
+        let work = ReminderList(id: "work", title: "Work", isDefault: true)
+        let personal = ReminderList(id: "personal", title: "Personal")
+        let store = FakeReminderStore(lists: [work, personal])
+        let (svc, sidecar) = makeService(store)
+        store.seed(ReminderData(id: "p1", title: "Personal task", isCompleted: true, completionDate: Date(), listId: "personal"))
+        sidecar.setMetadata(PerformanceMetadata(rating: 91), for: "p1")
+
+        // Narrow the display scope to Work only, then refresh repeatedly.
+        await svc.setListScope(["work"])
+        await svc.refresh()
+        await svc.refresh()
+
+        XCTAssertEqual(sidecar.metadata(for: "p1").rating, 91,
+                       "narrowing scope must not delete out-of-scope performance data")
+        XCTAssertFalse(svc.ratedItems.contains { $0.id == "p1" }, "but it's hidden from the scoped view")
+    }
+
+    @MainActor
+    func testExternalChangeTriggersRefresh() async { // spec: R1.3
+        let store = FakeReminderStore()
+        let (svc, _) = makeService(store)
+        svc.observeExternalChanges()
+        await svc.refresh()
+        XCTAssertTrue(svc.items.isEmpty)
+
+        // A change originating outside the app (Reminders/Siri) posts on `changes`.
+        store.save(ReminderData(title: "Added elsewhere"))
+        try? await Task.sleep(nanoseconds: 200_000_000)
+        XCTAssertEqual(svc.items.map(\.title), ["Added elsewhere"], "the store's change signal drives a refresh")
+    }
+
+    @MainActor
+    func testRecurringInAppCompletionCreatesRatableOccurrence() async { // spec: R3.3/R8.1
+        let store = FakeReminderStore()
+        let (svc, sidecar) = makeService(store)
+        let due = day("2026-08-01")
+        store.seed(ReminderData(id: "rec", title: "Water plants", dueDate: due, priority: .medium, isRecurring: true))
+
+        await svc.refresh(now: due)
+        XCTAssertEqual(svc.items.map(\.title), ["Water plants"], "the recurring series is an open item")
+        XCTAssertTrue(svc.needsRating.isEmpty)
+
+        await svc.setCompleted(id: "rec", true, now: due)
+
+        // The series advanced (still open) and the completed occurrence needs rating.
+        XCTAssertEqual(svc.items.count, 1, "series advanced to the next occurrence, still open")
+        XCTAssertTrue(svc.items[0].dueDate! > due, "due date advanced")
+        XCTAssertEqual(svc.needsRating.map(\.title), ["Water plants"], "the completed occurrence needs rating")
+
+        // Rate the occurrence via its composite id.
+        let occId = PerformanceSidecarStore.occurrenceId(seriesId: "rec", occurrenceDate: due)
+        await svc.recordRating(id: occId, rating: 75, notes: nil, actualMinutes: 20)
+        XCTAssertTrue(svc.needsRating.isEmpty, "rated occurrence leaves the inbox")
+        XCTAssertEqual(svc.ratedItems.first(where: { $0.id == occId })?.rating, 75, "and joins the rated population")
+        XCTAssertEqual(sidecar.metadata(for: occId).actualDuration, 20)
+    }
+
+    @MainActor
+    func testExternalRecurringAdvanceCapturesOccurrence() async { // spec: R3.3 (best-effort external)
+        let store = FakeReminderStore()
+        let (svc, _) = makeService(store)
+        let due = day("2026-08-01")
+        store.seed(ReminderData(id: "rec", title: "Standup", dueDate: due, isRecurring: true))
+        await svc.refresh(now: due) // records last-seen due
+
+        // Completed in Siri/Reminders → Apple advances the due date (still open).
+        store.setCompleted(id: "rec", true)
+        await svc.refresh(now: day("2026-08-02"))
+
+        XCTAssertEqual(svc.needsRating.map(\.title), ["Standup"],
+                       "an externally-advanced occurrence is captured for rating")
+    }
+
+    @MainActor
+    func testBrowseCompletedSurfacesOutOfWindowCompletions() async { // spec: R6.5
+        let store = FakeReminderStore()
+        let (svc, _) = makeService(store)
+        svc.needsRatingWindow = 7 * 86_400
+        store.seed(ReminderData(id: "recent", title: "Recent", isCompleted: true, completionDate: Date().addingTimeInterval(-2 * 86_400)))
+        store.seed(ReminderData(id: "old", title: "Old", isCompleted: true, completionDate: Date().addingTimeInterval(-30 * 86_400)))
+        await svc.refresh()
+
+        XCTAssertEqual(svc.needsRating.map(\.title), ["Recent"], "the inbox only shows recent completions")
+        let browse = await svc.browseCompleted()
+        XCTAssertEqual(browse.map(\.title), ["Recent", "Old"], "Browse Completed surfaces all, newest first")
     }
 
     @MainActor

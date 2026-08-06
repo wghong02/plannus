@@ -36,6 +36,13 @@ struct CompanionTasksView: View {
                     .accessibilityIdentifier("listGroup-\(list.title)")
                 }
             }
+
+            Section {
+                NavigationLink { BrowseCompletedView() } label: {
+                    Label("Browse Completed", systemImage: "clock.arrow.circlepath")
+                }
+                .accessibilityIdentifier("browseCompletedLink")
+            }
         }
         .overlay {
             if taskService.items.isEmpty && taskService.needsRating.isEmpty {
@@ -78,12 +85,12 @@ struct CompanionTasksView: View {
             .accessibilityIdentifier("complete-\(item.title)")
 
             VStack(alignment: .leading, spacing: 3) {
-                Text(item.title)
-                    // Overdue, still-open reminders read red (matches Apple).
-                    .foregroundStyle(isOverdue(item) ? Color.red : Color.primary)
+                // Metroneo doesn't restyle overdue reminders — the Reminders app
+                // already badges/styles them, and a date-only reminder due today
+                // isn't overdue until the day ends (DESIGN Non-goals / Tasks).
+                Text(item.title).foregroundStyle(.primary)
                 if let due = item.dueDate {
-                    Text(DateTimeUtilities.shortDate(due)).font(.caption)
-                        .foregroundStyle(isOverdue(item) ? Color.red.opacity(0.8) : Color.secondary)
+                    Text(DateTimeUtilities.shortDate(due)).font(.caption).foregroundStyle(.secondary)
                 }
             }
             Spacer()
@@ -91,10 +98,5 @@ struct CompanionTasksView: View {
         // Tapping the row (outside the complete toggle) opens the editor.
         .contentShape(Rectangle())
         .onTapGesture { editingItem = item }
-    }
-
-    private func isOverdue(_ item: TaskItem) -> Bool {
-        guard let due = item.dueDate else { return false }
-        return !item.isCompleted && due < Date()
     }
 }

@@ -28,8 +28,10 @@ struct CompanionSettingsView: View {
                 Text("How much each Apple Reminders priority counts toward your weighted average.")
                     .font(.caption).foregroundStyle(.secondary)
                 ForEach(ReminderPriority.allCases, id: \.self) { priority in
+                    // Weights are ≥ 1 (R7.3): a 0 would erase a whole priority
+                    // bucket from the weighted average and can zero the total weight.
                     Stepper("\(priority.label): \(weight(priority))",
-                            value: weightBinding(priority), in: 0...10)
+                            value: weightBinding(priority), in: 1...10)
                         .accessibilityIdentifier("weight-\(priority.label)")
                 }
             }

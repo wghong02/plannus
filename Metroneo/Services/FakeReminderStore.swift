@@ -42,10 +42,22 @@ final class FakeReminderStore: ReminderStore {
         return r
     }
 
+    /// How far a recurring reminder's due date advances on completion (fake stand-in
+    /// for Apple's recurrence engine).
+    var recurrenceStep: TimeInterval = 86_400
+
     func setCompleted(id: String, _ completed: Bool) {
         guard var r = reminders[id] else { return }
-        r.isCompleted = completed
-        r.completionDate = completed ? Date() : nil
+        if completed, r.isRecurring, let due = r.dueDate {
+            // Apple advances a recurring reminder rather than marking it completed:
+            // the same item stays incomplete with the next occurrence's due date.
+            r.dueDate = due.addingTimeInterval(recurrenceStep)
+            r.isCompleted = false
+            r.completionDate = nil
+        } else {
+            r.isCompleted = completed
+            r.completionDate = completed ? Date() : nil
+        }
         reminders[id] = r
         subject.send()
     }

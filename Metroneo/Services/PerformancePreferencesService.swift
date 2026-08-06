@@ -17,7 +17,7 @@ public struct PerformanceCutoffs: Codable, Equatable {
 
     /// The single source of truth for default cutoffs. The Cutoffs screen seeds
     /// its fields from the current cutoffs, which start from these.
-    public static let defaults = PerformanceCutoffs(fair: 60, good: 75, veryGood: 80, excellent: 90)
+    public static let defaults = PerformanceCutoffs(fair: 50, good: 60, veryGood: 75, excellent: 90)
 }
 
 /// Performance category label. The matching fill color lives in `Palette.swift`

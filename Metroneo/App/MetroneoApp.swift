@@ -39,7 +39,9 @@ struct MetroneoApp: App {
             OnboardingGate.markSeen(taskDefaults)
         }
         self.launchDefaults = taskDefaults
-        _taskService = StateObject(wrappedValue: TaskService(store: reminderStore, sidecar: sidecar, defaults: taskDefaults))
+        let service = TaskService(store: reminderStore, sidecar: sidecar, defaults: taskDefaults)
+        service.observeExternalChanges() // refresh on EKEventStoreChanged (R1.3)
+        _taskService = StateObject(wrappedValue: service)
     }
 
     var body: some Scene {

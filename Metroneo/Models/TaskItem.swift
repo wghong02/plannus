@@ -70,6 +70,28 @@ public struct TaskItem: Identifiable, Equatable, Sendable {
         actualDuration = m.actualDuration
     }
 
+    /// Projects a recurring **occurrence snapshot** (DESIGN R3.3) as a `TaskItem`:
+    /// its composite id, the series' snapshotted title/list/priority, the
+    /// occurrence's due + completion dates, and the joined performance fields. It's
+    /// always a completed, recurring item placed on the timeline by its completion.
+    public init(occurrence o: OccurrenceRecord) {
+        id = o.id
+        title = o.title
+        notes = nil
+        dueDate = o.occurrenceDate
+        hasDueTime = false
+        isCompleted = true
+        completionDate = o.completionDate
+        priority = o.priority
+        listId = o.listId
+        isRecurring = true
+        alarmOffsetMinutes = []
+        rating = o.metadata.rating
+        performanceNotes = o.metadata.performanceNotes
+        estimatedDuration = o.metadata.estimatedDuration
+        actualDuration = o.metadata.actualDuration
+    }
+
     /// The reminder half of the join, for write-back through the store (R4).
     public var reminderData: ReminderData {
         ReminderData(

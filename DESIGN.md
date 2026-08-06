@@ -34,10 +34,14 @@ thing Apple doesn't: **how well you did.**
   Metroneo attaches a **rating**, **performance notes**, and an **estimated /
   actual time** to each reminder, stored locally and joined by the reminder's
   stable id.
-- **Same reminders, everywhere.** Because the source of truth is Apple Reminders,
-  Metroneo needs no sync, no notification scheduling, and no recurrence engine of
-  its own — completing a reminder in Siri shows up in Metroneo, and completing one
-  in Metroneo shows up in Reminders.
+- **The tasks follow you; the performance data is per-device.** Apple Reminders is
+  the source of truth for tasks, so completing a reminder in Siri shows up in
+  Metroneo and vice-versa — no task sync, notification scheduling, or recurrence
+  engine of Metroneo's own. But the **performance sidecar is a local store** (R3.1):
+  the ratings, notes, and durations you record live only on the device that
+  recorded them and do **not** currently follow you across devices, even though the
+  reminders they attach to do. Cross-device sidecar sync (CloudKit) is a known
+  future extension, not a current guarantee.
 - **Rate after the fact.** Since a reminder can be finished anywhere, Metroneo
   surfaces a **Needs rating** inbox of recently-completed, still-unrated reminders
   — rate them and log the actual time when you get to it. The analytics span
@@ -133,14 +137,48 @@ lists are the only grouping.
   `{ rating, performanceNotes, estimatedDuration, actualDuration }` keyed by
   `calendarItemExternalIdentifier`, in a **local SwiftData store** with **per-entry
   writes**. Setting any field upserts one row; clearing all fields drops it.
-- **R3.2** — **orphan reconciliation:** on each sync, sidecar rows whose externalId
-  is absent from the store are pruned (a reminder deleted in Apple's app takes its
-  performance data with it). This is the crux invariant — unit-tested against the
-  `FakeReminderStore`, including that a still-alive but out-of-window rated reminder
-  keeps its data.
-- **R3.3** — externalId is stable per reminder and syncs across devices; a
-  **recurring** reminder shares one externalId across occurrences (R8), so its
-  sidecar is per-series, not per-occurrence.
+- **R3.2** — **orphan reconciliation (defensive):** a reminder deleted in Apple's
+  app should take its performance data with it, but reconciliation must never
+  destroy data for a reminder that still exists. Because a *read* drives a
+  *destructive write*, pruning is deliberately conservative:
+  - **Full account, not the scoped view.** Reconciliation runs against the **full,
+    unscoped** live set (all lists), independent of the Settings list scope (R5.3).
+    List scope only filters what the UI *shows*; it never causes deletion. (A scoped
+    fetch is a subset, and pruning against a subset was a data-loss bug.)
+  - **Empty-guard.** If the live fetch failed or came back empty while the sidecar
+    is non-empty (a transient EventKit error, permission loss, or iCloud not yet
+    synced), reconciliation is **skipped entirely** — an empty read is treated as
+    "unknown", not "everything was deleted".
+  - **Grace across syncs.** An id absent from the live set is not pruned on first
+    sight; it is marked *pending*, and only dropped once it has been **absent across
+    two consecutive successful syncs**. An id that reappears clears its pending mark.
+  - **Occurrence snapshots are exempt.** Historical recurring-occurrence rows (R3.3)
+    have no live reminder by design and are never pruned by reconciliation.
+
+  This is the crux invariant — unit-tested against the `FakeReminderStore`,
+  including that a still-alive but out-of-window rated reminder keeps its data, that
+  a scoped view doesn't prune out-of-scope data, and that an empty fetch prunes
+  nothing.
+- **R3.3** — externalId is stable per reminder. A **recurring** reminder shares one
+  externalId across occurrences (Apple advances the same item on completion rather
+  than exposing separate occurrence records), so Metroneo gives each occurrence its
+  own **composite sidecar identity** — `"<externalId>@<occurrence-due-date>"` — and
+  stores one performance row **per occurrence**, not one aggregate row per series.
+  - **Capture is at completion time (in-app):** because EventKit does not let us
+    re-fetch past occurrences, an occurrence's performance can only be recorded when
+    that occurrence is completed. Completing a recurring reminder **inside Metroneo**
+    writes an **occurrence snapshot** (the composite id + the occurrence's due date +
+    its completion date) before letting Apple advance the series; the snapshot then
+    surfaces in the Needs-rating inbox and joins analytics as its own data point.
+  - **External completions are best-effort:** a recurring reminder completed in Siri
+    / the Reminders app / another device is not delivered as a per-occurrence record;
+    Apple simply advances the due date. On refresh (and on the R1.3 change signal)
+    Metroneo detects that a known recurring series' due date has **advanced past the
+    value it last saw** and synthesizes one occurrence snapshot for the prior
+    occurrence. **Caveats:** occurrences completed while the app never ran between
+    them are lost, and the completion timestamp is inferred (the prior due date).
+  - Occurrence snapshots are historical, sidecar-only records with no live reminder,
+    so they are **exempt from orphan reconciliation** (R3.2).
 
 ### R4 — Write-back (full CRUD) · depends: R1, R2
 - **R4.1** — Metroneo can **create, edit, complete/uncomplete, and delete**
@@ -181,24 +219,45 @@ lists are the only grouping.
   externally-completed ones wait in the inbox.
 - **R6.4** — **estimated** duration is set ahead of time (editor → sidecar);
   **actual** is captured at rating time.
+- **R6.5 — Browse completed.** The Needs-rating inbox only surfaces completions
+  *inside* the look-back window (R6.1a), so rating something finished earlier needs
+  its own surface. Tasks offers a **Browse Completed** view: all completed reminders
+  (across the current list scope, newest first), each tappable to open the same
+  rating sheet — so "any completed reminder can be rated on demand" is actually
+  reachable, not just asserted. Already-rated completions show their level; unrated
+  ones invite a rating.
 
 ### R7 — Priority (Apple's buckets) · depends: R2
-- **R7.1** — priority is Apple's four buckets — **None / Low / Medium / High** —
-  mapped to `EKReminder.priority` (0 / 9 / 5 / 1). The editor shows a 4-way picker.
+- **R7.1** — priority is Apple's four buckets — **None / Low / Medium / High** — the
+  same four the Reminders app itself exposes, mapped to `EKReminder.priority`
+  (0 / 9 / 5 / 1). The editor shows a 4-way picker. Apple's underlying field is 1–9;
+  Metroneo reads the finer value into a bucket, but to **stay faithful to Apple** an
+  edit only rewrites `EKReminder.priority` when the user actually changes the
+  bucket — a save that leaves the bucket untouched **preserves Apple's original
+  numeric value** (so a reminder at priority 3 isn't silently rewritten to 1).
 - **R7.2** — the 0–100 rating slider (D11) is unaffected; priority and rating are
   separate.
 - **R7.3 — priority weights the analytics.** The performance **average** (the trend
   line and the "Average" stat) is a **weighted mean** of ratings, each weighted by
   its priority bucket: `Σ(rating · weight) / Σ(weight)`. Default weights
   **None = 1, Low = 2, Medium = 3, High = 4**, so higher-priority work counts more.
-  The four weights are **configurable in Settings**. The **distribution** chart
-  stays raw counts; only the average is weighted.
+  The four weights are **configurable in Settings**, each **≥ 1** (a weight of 0 is
+  disallowed — it would silently erase a whole priority bucket from the average and
+  can drive the total weight to 0). **Trade-off, by design:** because the headline
+  "Average" is *weighted*, it does not equal the plain mean of the ratings a user
+  sees in the Recent list, and the **distribution** chart stays *raw counts* — so
+  the average and the distribution intentionally answer different questions
+  (importance-weighted quality vs. how many landed at each level). The UI labels the
+  stat "Average" with this weighting in mind.
 
-### R8 — Recurrence (aggregate, read-only) · depends: R2
-- **R8.1** — recurrence is Apple's (`EKReminder.recurrenceRules`); Metroneo doesn't
-  generate occurrences. A recurring reminder shares one externalId, so its
-  performance data is **aggregate** across occurrences. The editor displays a
-  read-only note; recurrence is edited in the Reminders app.
+### R8 — Recurrence (per-occurrence performance, read-only rule) · depends: R2, R3
+- **R8.1** — the recurrence *rule* is Apple's (`EKReminder.recurrenceRules`);
+  Metroneo doesn't generate occurrences and the editor shows a read-only note
+  (recurrence is edited in the Reminders app). Performance, however, is captured
+  **per occurrence** via the composite occurrence identity (R3.3): each completed
+  occurrence is its own rated snapshot and its own point on the analytics timeline,
+  rather than one aggregate row for the whole series. In-app completions capture the
+  occurrence exactly; external completions are best-effort (R3.3).
 
 ---
 
@@ -210,7 +269,9 @@ population and its settings live in local preferences.
 ### D8 / D10 / D12 — performance customization
 - **Five levels** — Poor / Fair / Good / Very Good / Excellent — are assigned to a
   0–100 rating by four ascending **cutoffs** (fair ≤ good ≤ very-good ≤ excellent),
-  validated so they never decrease.
+  validated so they never decrease. Defaults are **Fair 50 / Good 60 / Very Good 75
+  / Excellent 90**, spread across the scale so the 0–100 slider's range maps to the
+  five levels without the bottom half collapsing into a single "Poor" band.
 - Each level's **label (D8)** and **color (D10, a `ColorPicker` with opacity)** are
   user-customizable, with sensible defaults.
 - The **overall-trend classification (D12)** compares the first vs. last non-empty
@@ -250,8 +311,10 @@ population and its settings live in local preferences.
 ## Tabs
 
 - **Tasks** — a pinned **Needs rating** inbox over reminders grouped by **list**
-  (an expandable section per list). Create / edit / complete / delete (R4); tap a
-  row to edit; overdue open reminders read red.
+  (an expandable section per list), plus a **Browse Completed** entry (R6.5). Create
+  / edit / complete / delete (R4); tap a row to edit. Metroneo does **not** restyle
+  overdue reminders (see Non-goals) — the Reminders app already badges and styles
+  them, and a date-only reminder due *today* is not overdue until the day ends.
 - **Performance** — the trend + distribution charts (D16), estimated-vs-actual bars
   (D17), stat cards, insights, and a recent-rated list, over the rated population
   with the priority-weighted average (R7.3).
@@ -305,11 +368,15 @@ Metroneo/
                   PerformanceCustomizationScreen, SliderField
 ```
 
-- **`TaskService`** is the read/write hub: `refresh()` fetches incomplete + all
-  completed reminders, reconciles the sidecar against the **full** live set (not the
-  windowed completed fetch — so old ratings survive), joins into
-  `items` / `needsRating` / `ratedItems`, and publishes the lists. Every write
-  forwards to the store or sidecar and refreshes.
+- **`TaskService`** is the read/write hub: `refresh()` fetches the **full, unscoped**
+  incomplete + completed set (across all lists), reconciles the sidecar against it
+  defensively (R3.2 — scope-independent, empty-guarded, grace across syncs), then
+  filters to the Settings list scope (R5.3) *in memory* to build
+  `items` / `needsRating` / `ratedItems` and publishes the lists. It subscribes to
+  the store's `changes` publisher (R1.3) and refreshes when reminders change
+  externally, and detects recurring-series due-date advancement to capture
+  best-effort occurrence snapshots (R3.3). Every write forwards to the store or
+  sidecar and refreshes.
 - **`PerformanceAnalytics`** is pure and operates on `TaskItem`s / `RatedSample`s:
   `samples(from:weights:)`, the weighted `average`, adaptive `trendSeries`,
   `durationTotals`, and `windowedRated`.

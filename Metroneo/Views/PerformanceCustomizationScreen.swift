@@ -38,9 +38,9 @@ struct PerformanceCustomizationScreen: View {
             Section("Overall Trend") {
                 Stepper("Improving ≥ \(Int(custom.trendImprovingPercent))%", value: trendBinding(improving: true), in: 0...100)
                 Stepper("Declining ≤ \(Int(custom.trendDecliningPercent))%", value: trendBinding(improving: false), in: -100...0)
-                TextField("Improving", text: trendLabelBinding(\.improving, default: "Improving"))
-                TextField("Neutral", text: trendLabelBinding(\.neutral, default: "Neutral"))
-                TextField("Declining", text: trendLabelBinding(\.declining, default: "Declining"))
+                TextField("Improving", text: trendLabelBinding(\.improving))
+                TextField("Neutral", text: trendLabelBinding(\.neutral))
+                TextField("Declining", text: trendLabelBinding(\.declining))
             }
 
             Section {
@@ -111,7 +111,7 @@ struct PerformanceCustomizationScreen: View {
         )
     }
 
-    private func trendLabelBinding(_ keyPath: WritableKeyPath<TrendLabels, String>, default def: String) -> Binding<String> {
+    private func trendLabelBinding(_ keyPath: WritableKeyPath<TrendLabels, String>) -> Binding<String> {
         Binding(
             get: { custom.customization.trendLabels[keyPath: keyPath] },
             set: { newValue in

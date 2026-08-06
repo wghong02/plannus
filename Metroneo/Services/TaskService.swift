@@ -18,10 +18,12 @@ public final class TaskService: ObservableObject {
     private let store: ReminderStore
     private let sidecar: PerformanceSidecarStore
     private let defaults: UserDefaults
+    private var cancellables = Set<AnyCancellable>()
 
     private enum Keys {
         static let window = "companion.needsRatingWindowDays"
         static let scope = "companion.listScope"
+        static let recurringDue = "companion.recurringLastSeenDue"
     }
 
     /// Which lists to include (`nil` ⇒ all authorized lists). Default all; Settings
@@ -67,6 +69,18 @@ public final class TaskService: ObservableObject {
         await refresh()
     }
 
+    /// Subscribes to the store's external-change signal (`EKEventStoreChanged`, R1.3)
+    /// and refreshes when reminders change in the Reminders app / Siri / another
+    /// device. Call once at app start (not from unit tests, so refreshes stay
+    /// deterministic there).
+    public func observeExternalChanges() {
+        guard cancellables.isEmpty else { return }
+        store.changes
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] in Task { await self?.refresh() } }
+            .store(in: &cancellables)
+    }
+
     /// Whether Reminders access is granted (R1.1).
     public var isAuthorized: Bool { store.isAuthorized }
 
@@ -78,27 +92,82 @@ public final class TaskService: ObservableObject {
         return granted
     }
 
-    /// Re-fetches reminders, reconciles the sidecar against the **full** live set,
-    /// and rebuilds `items` / `needsRating` / `ratedItems` (R2/R3).
+    /// Re-fetches reminders, reconciles the sidecar defensively against the **full,
+    /// unscoped** live set (R3.2), captures best-effort recurring occurrences (R3.3),
+    /// then filters to the Settings list scope (R5.3) to rebuild
+    /// `items` / `needsRating` / `ratedItems` (R2/R3).
     @MainActor
     public func refresh(now: Date = Date()) async {
         lists = store.lists()
-        let incomplete = await store.incompleteReminders(inLists: listScope)
+        // Fetch the FULL set (all lists) — reconciliation must never see a scoped
+        // subset, or it would prune out-of-scope performance data (R3.2). Scope is
+        // applied in memory below for display only.
+        let incomplete = await store.incompleteReminders(inLists: nil)
         // All completed (not just the window) so reconciliation and the rated
         // population see every existing reminder.
-        let completed = await store.completedReminders(since: .distantPast, inLists: listScope)
+        let completed = await store.completedReminders(since: .distantPast, inLists: nil)
+
+        // Best-effort external recurrence capture: a recurring series whose due date
+        // advanced since we last saw it had an occurrence completed elsewhere (R3.3).
+        captureAdvancedRecurrences(incomplete, now: now)
 
         let liveIds = Set(incomplete.map(\.id)).union(completed.map(\.id))
-        sidecar.reconcile(liveIds: liveIds)
+        // `isAuthorized == false` ⇒ EventKit returns [] for reasons other than
+        // deletion; don't let that prune the sidecar (R3.2 empty-guard).
+        sidecar.reconcile(liveIds: liveIds, fetchSucceeded: store.isAuthorized)
 
-        items = incomplete.map(join)
+        let occurrences = sidecar.occurrences()
+            .filter { inScope($0.listId) }
+            .map(TaskItem.init(occurrence:))
+
+        items = incomplete.filter { inScope($0.listId) }.map(join)
 
         let windowStart = now.addingTimeInterval(-needsRatingWindow)
-        needsRating = completed
-            .filter { ($0.completionDate ?? .distantPast) >= windowStart && sidecar.metadata(for: $0.id).rating == nil }
+        func recentUnrated(_ completionDate: Date?, _ rating: Int?) -> Bool {
+            (completionDate ?? .distantPast) >= windowStart && rating == nil
+        }
+        let completedNeeds = completed
+            .filter { inScope($0.listId) && recentUnrated($0.completionDate, sidecar.metadata(for: $0.id).rating) }
             .map(join)
+        let occurrenceNeeds = occurrences.filter { recentUnrated($0.completionDate, $0.rating) }
+        needsRating = (completedNeeds + occurrenceNeeds)
+            .sorted { ($0.completionDate ?? .distantPast) > ($1.completionDate ?? .distantPast) }
 
-        ratedItems = (incomplete + completed).map(join).filter(\.isRated)
+        let ratedReminders = (incomplete + completed).filter { inScope($0.listId) }.map(join).filter(\.isRated)
+        ratedItems = ratedReminders + occurrences.filter(\.isRated)
+    }
+
+    /// Whether a list is in the current display scope (`nil` ⇒ all lists, R5.3).
+    private func inScope(_ listId: String) -> Bool { listScope.map { $0.contains(listId) } ?? true }
+
+    /// Detects recurring series whose due date advanced since the last sync and
+    /// records one occurrence snapshot for the prior occurrence — the best-effort
+    /// external-completion path (R3.3). Idempotent with the exact in-app capture.
+    private func captureAdvancedRecurrences(_ incomplete: [ReminderData], now: Date) {
+        var seen = defaults.dictionary(forKey: Keys.recurringDue) as? [String: Double] ?? [:]
+        for r in incomplete where r.isRecurring {
+            guard let due = r.dueDate else { continue }
+            let epoch = due.timeIntervalSince1970
+            if let prev = seen[r.id], epoch > prev {
+                sidecar.recordOccurrence(
+                    seriesId: r.id, title: r.title, listId: r.listId, priority: r.priority,
+                    occurrenceDate: Date(timeIntervalSince1970: prev), completionDate: now
+                )
+            }
+            seen[r.id] = epoch
+        }
+        defaults.set(seen, forKey: Keys.recurringDue)
+    }
+
+    /// All completed reminders (and recurring occurrences) in the current scope,
+    /// newest first — the **Browse Completed** surface (R6.5) for rating anything on
+    /// demand, including completions older than the Needs-rating window (R6.1a).
+    @MainActor
+    public func browseCompleted() async -> [TaskItem] {
+        let completed = await store.completedReminders(since: .distantPast, inLists: nil)
+        let normal = completed.filter { inScope($0.listId) }.map(join)
+        let occ = sidecar.occurrences().filter { inScope($0.listId) }.map(TaskItem.init(occurrence:))
+        return (normal + occ).sorted { ($0.completionDate ?? .distantPast) > ($1.completionDate ?? .distantPast) }
     }
 
     // MARK: - Reminder writes (R4 — forward to Apple Reminders, then refresh)
@@ -112,11 +181,19 @@ public final class TaskService: ObservableObject {
         return saved
     }
 
-    /// Marks a reminder complete/incomplete (R4.3).
+    /// Marks a reminder complete/incomplete (R4.3). Completing a **recurring**
+    /// reminder in-app captures an exact occurrence snapshot (R3.3) *before* Apple
+    /// advances the series, so that occurrence can be rated on its own.
     @MainActor
-    public func setCompleted(id: String, _ completed: Bool) async {
+    public func setCompleted(id: String, _ completed: Bool, now: Date = Date()) async {
+        if completed, let item = items.first(where: { $0.id == id }), item.isRecurring {
+            sidecar.recordOccurrence(
+                seriesId: id, title: item.title, listId: item.listId, priority: item.priority,
+                occurrenceDate: item.dueDate ?? now, completionDate: now
+            )
+        }
         store.setCompleted(id: id, completed)
-        await refresh()
+        await refresh(now: now)
     }
 
     /// Deletes a reminder and drops its sidecar performance data (R4.1 / R3.2).
