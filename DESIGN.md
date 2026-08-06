@@ -315,8 +315,13 @@ population and its settings live in local preferences.
 ## Tabs
 
 - **Tasks** — a pinned **Needs rating** inbox over reminders grouped by **list**
-  (an expandable section per list), plus a **Browse Completed** entry (R6.5). Create
-  / edit / complete / delete (R4); tap a row to edit. Metroneo does **not** restyle
+  (each list is a tappable header that expands/collapses its reminders), plus a
+  **Browse Completed** entry (R6.5). Each reminder row is a real list row: a
+  **leading complete circle** (tap to complete → write-back → Needs-rating, R4.3/R6),
+  the **title**, and a **due date + time subtitle** when the reminder has a due date;
+  tapping the row (outside the circle) opens the editor. The grouping is a manual
+  expand/collapse rather than a `DisclosureGroup`, so each row — and its complete
+  circle — is an independent, accessible control. Metroneo does **not** restyle
   overdue reminders (see Non-goals) — the Reminders app already badges and styles
   them, and a date-only reminder due *today* is not overdue until the day ends.
 - **Performance** — the trend + distribution charts (D16), estimated-vs-actual bars
@@ -367,8 +372,8 @@ Metroneo/
 ├── Storage/      StoredPerformance (@Model) + PerformanceSidecarStore (SwiftData)
 ├── Utilities/    DateTimeUtilities, ColorHex, Palette
 └── Views/        CompanionRootView (tabs), ReminderAccessGate, OnboardingView,
-                  CompanionTasksView, CompanionReminderEditor, RatingSheet,
-                  CompanionPerformanceView, CompanionSettingsView,
+                  CompanionTasksView, BrowseCompletedView, CompanionReminderEditor,
+                  RatingSheet, CompanionPerformanceView, CompanionSettingsView,
                   PerformanceCustomizationScreen, SliderField
 ```
 
@@ -408,14 +413,18 @@ Metroneo/
   | | rateFromNeedsRatingInbox | R6.2 rating sheet → sidecar |
   | | createReminderAppearsInDefaultList | R4.1 create → write-back → default list |
   | | tapRowOpensPrefilledEditor | R4.2 tap-to-edit, pre-filled |
+  | | completeCircleMovesReminderToNeedsRating | R4.3/R6 complete circle → write-back → inbox |
   | `CompanionPerformanceUITests` | performanceTabRendersEmptyState | R2 charts wiring / empty state |
   | | ratingFeedsPerformance | R2.3 rate → appears in Recent (sidecar → analytics) |
   | `CompanionSettingsUITests` | settingsRendersCompanionControls | R5.3/R6.1a/R7.3 controls render |
   | | listScopeNarrowsTasks | R5.3 scope narrows Tasks + inbox end-to-end |
+  | | listScopeTogglesEachListOffAndBackOn | R5.3 each/last list toggles off (no revert) + on |
   | `OnboardingUITests` | walkthroughConnectsAndDismisses | D13/R1.1 walkthrough → Connect → Tasks |
   | | onboardingSkippedByDefaultInTests | deterministic skip for other suites |
 
-  Completion write-back (complete → Needs-rating) is covered at the service level
-  (`TaskServiceTests.testCreateEditCompleteRateDelete`) — the complete toggle sits
-  inside a collapsible `DisclosureGroup` row where XCUITest's nested-button
-  discovery is unreliable.
+  The complete circle is directly UI-tested (`completeCircleMovesReminderToNeedsRating`):
+  because the list grouping is a manual expand/collapse rather than a `DisclosureGroup`,
+  each reminder row — and its leading complete circle — is an independent, accessible
+  control that XCUITest can find and tap. The full create → edit → complete → rate →
+  delete round-trip also has service-level coverage
+  (`TaskServiceTests.testCreateEditCompleteRateDelete`).

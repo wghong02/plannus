@@ -9,6 +9,10 @@ struct CompanionTasksView: View {
     @State private var ratingItem: TaskItem?
     @State private var editingItem: TaskItem?
     @State private var showNewReminder = false
+    /// Which list groups are expanded. A manual toggle (rather than `DisclosureGroup`)
+    /// keeps each reminder row a real list row, so the leading complete circle stays
+    /// individually tappable/discoverable.
+    @State private var expandedLists: Set<String> = []
 
     var body: some View {
         List {
@@ -24,16 +28,25 @@ struct CompanionTasksView: View {
             ForEach(taskService.lists) { list in
                 let listItems = taskService.items.filter { $0.listId == list.id }
                 if !listItems.isEmpty {
-                    DisclosureGroup {
-                        ForEach(listItems) { item in reminderRow(item) }
+                    let expanded = expandedLists.contains(list.id)
+                    Button {
+                        if expanded { expandedLists.remove(list.id) } else { expandedLists.insert(list.id) }
                     } label: {
                         HStack {
-                            Text(list.title).font(.headline)
+                            Text(list.title).font(.headline).foregroundStyle(.primary)
                             Spacer()
                             Text("\(listItems.count)").foregroundStyle(.secondary)
+                            Image(systemName: expanded ? "chevron.down" : "chevron.right")
+                                .font(.caption).foregroundStyle(.secondary)
                         }
+                        .contentShape(Rectangle())
                     }
+                    .buttonStyle(.plain)
                     .accessibilityIdentifier("listGroup-\(list.title)")
+
+                    if expanded {
+                        ForEach(listItems) { item in reminderRow(item) }
+                    }
                 }
             }
 
@@ -76,6 +89,8 @@ struct CompanionTasksView: View {
 
     private func reminderRow(_ item: TaskItem) -> some View {
         HStack(spacing: 12) {
+            // Leading complete circle — its own button so it stays independently
+            // tappable/discoverable (a row-wide tap gesture would swallow it).
             Button {
                 Task { await taskService.setCompleted(id: item.id, true) }
             } label: {
@@ -84,19 +99,26 @@ struct CompanionTasksView: View {
             .buttonStyle(.plain)
             .accessibilityIdentifier("complete-\(item.title)")
 
-            VStack(alignment: .leading, spacing: 3) {
-                // Metroneo doesn't restyle overdue reminders — the Reminders app
-                // already badges/styles them, and a date-only reminder due today
-                // isn't overdue until the day ends (DESIGN Non-goals / Tasks).
-                Text(item.title).foregroundStyle(.primary)
-                if let due = item.dueDate {
-                    Text(DateTimeUtilities.shortDate(due)).font(.caption).foregroundStyle(.secondary)
+            // Tapping the title area opens the editor.
+            Button { editingItem = item } label: {
+                VStack(alignment: .leading, spacing: 3) {
+                    // Metroneo doesn't restyle overdue reminders — the Reminders app
+                    // already badges/styles them, and a date-only reminder due today
+                    // isn't overdue until the day ends (DESIGN Non-goals / Tasks).
+                    Text(item.title).foregroundStyle(.primary)
+                    if let due = item.dueDate {
+                        // Subtitle shows the due date and, when set, its time.
+                        Text(DateTimeUtilities.formatDeadline(due, hasTime: item.hasDueTime))
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
             }
-            Spacer()
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("edit-\(item.title)")
         }
-        // Tapping the row (outside the complete toggle) opens the editor.
-        .contentShape(Rectangle())
-        .onTapGesture { editingItem = item }
+        // Trim the default nested-row indentation so the row sits flush-left.
+        .listRowInsets(EdgeInsets(top: 8, leading: 12, bottom: 8, trailing: 16))
     }
 }

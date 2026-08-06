@@ -50,9 +50,11 @@ final class CompanionTasksUITests: UITestCase {
         app.buttons["saveReminderButton"].tap()
 
         // A new reminder lands in the default list ("Work"); expanding shows it.
+        // (Query the row's stable button id: a due-date-less row's title is the
+        // button's own label, not a separate static text.)
         XCTAssertTrue(app.staticTexts["Work"].waitForExistence(timeout: 5))
         app.staticTexts["Work"].tap()
-        XCTAssertTrue(app.staticTexts["Plan trip"].waitForExistence(timeout: 5),
+        XCTAssertTrue(app.buttons["edit-Plan trip"].waitForExistence(timeout: 5),
                       "the created reminder appears in its list")
     }
 
@@ -72,9 +74,19 @@ final class CompanionTasksUITests: UITestCase {
         XCTAssertEqual(field.value as? String, "Review PR", "the editor is pre-filled")
     }
 
-    // Note: completing a reminder → write-back → it moving into the Needs-rating
-    // inbox is covered at the service level by TaskServiceTests
-    // (`testCreateEditCompleteRateDelete`). A UI test of the complete toggle isn't
-    // added here: the toggle lives inside a collapsible DisclosureGroup row, where
-    // XCUITest's discovery of the nested button is unreliable — not worth a flaky test.
+    @MainActor
+    func testCompleteCircleMovesReminderToNeedsRating() throws { // spec: R4.3/R6.1
+        let app = launchCompanion()
+        XCTAssertTrue(app.staticTexts["Work"].waitForExistence(timeout: 10))
+        app.staticTexts["Work"].tap() // expand the list
+
+        XCTAssertTrue(app.staticTexts["Review PR"].waitForExistence(timeout: 5))
+        let complete = app.buttons["complete-Review PR"]
+        XCTAssertTrue(complete.waitForExistence(timeout: 5), "the leading complete circle is reachable")
+        complete.tap()
+
+        // Completing writes back to Reminders and the item lands in the inbox to rate.
+        XCTAssertTrue(app.buttons["needsRating-Review PR"].waitForExistence(timeout: 5),
+                      "tapping the complete circle moves the reminder into the Needs-rating inbox")
+    }
 }
