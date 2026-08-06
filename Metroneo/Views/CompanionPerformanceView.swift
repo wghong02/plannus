@@ -63,6 +63,7 @@ struct CompanionPerformanceView: View {
             }
             .padding()
         }
+        .pageBackground()
         .navigationTitle("Performance")
         .task { await taskService.refresh() }
     }
@@ -237,7 +238,7 @@ struct CompanionPerformanceView: View {
                 .font(.caption2).foregroundStyle(.secondary)
         }
         .padding(8)
-        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 8))
+        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 8))
         .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color(.separator)))
     }
 
@@ -290,7 +291,7 @@ struct CompanionPerformanceView: View {
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 12))
+        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 12))
     }
 
     private func levelBadge(_ rating: Int) -> some View {

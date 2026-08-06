@@ -68,11 +68,19 @@ extension PerformanceCustomizationService {
 }
 
 extension View {
-    /// The standard rounded, bordered "card" surface used across the app.
-    /// Uses adaptive system colors, so it renders correctly in dark mode.
+    /// The standard rounded "card" surface used across the app. Uses the grouped
+    /// **row** color on a grouped page background — the same palette as the
+    /// `List`-based tabs (Tasks / Settings / Browse) — so all pages read as one
+    /// system. Adaptive, so it's correct in dark mode too.
     func cardStyle(cornerRadius: CGFloat = 12) -> some View {
-        self
-            .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: cornerRadius))
-            .overlay(RoundedRectangle(cornerRadius: cornerRadius).stroke(Color(.separator)))
+        self.background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: cornerRadius))
+    }
+}
+
+extension View {
+    /// The shared page background for tab content — the grouped-list background, so a
+    /// `ScrollView`-based page (Performance) matches the `List`-based pages.
+    func pageBackground() -> some View {
+        self.background(Color(.systemGroupedBackground))
     }
 }
