@@ -226,18 +226,19 @@ lists are the only grouping.
 - **R6.4** — **estimated** duration is set ahead of time (editor → sidecar) **or
   adjusted at rating time** (rating sheet → sidecar); **actual** is captured at
   rating time. Capturing both together is what makes the D17 bars populate.
-- **R6.5 — Browse completed.** The Needs-rating inbox only surfaces completions
-  *inside* the look-back window (R6.1a), so rating something finished earlier needs
-  its own surface. Tasks offers a **Browse Completed** view: all completed reminders
-  (across the current list scope, newest first). **Tapping** a row opens a **combined
-  detail** — the reminder's fields to **edit on top** (title, notes, due, priority,
-  list, alarms; R4) and the **rating below** (rating, estimated/actual, performance
-  notes; R6.2) — with one Save that writes both; editing stays valid on a completed
-  reminder and keeps it completed. **Swiping a row left** reveals two actions —
-  **Edit** (left) and **Delete** (right, which removes the reminder and its sidecar,
-  R3.2); **swiping right does nothing**. Already-rated completions show their level;
-  unrated ones invite a rating. Recurring **occurrence snapshots** (R3.3) have no live
-  reminder, so tapping them opens the rating sheet only and they have no swipe actions.
+- **R6.5 — Completed.** The Needs-rating inbox only surfaces completions *inside* the
+  look-back window (R6.1a), so rating something finished earlier needs its own
+  surface. Tasks offers a **Completed** view: all completed reminders (within the
+  Settings list scope, newest first) with a **pick-by-list filter** (default **All
+  Lists**, or narrow to one list). **Tapping** a row opens a **combined detail** —
+  the reminder's fields to **edit on top** (title, notes, due, priority, list,
+  alarms; R4) and the **rating below** (rating, estimated/actual, performance notes;
+  R6.2) — with one Save that writes both; editing stays valid on a completed reminder
+  and keeps it completed. **Swiping a row left** reveals two actions — **Edit** (left)
+  and **Delete** (right, which removes the reminder and its sidecar, R3.2); **swiping
+  right does nothing**. Already-rated completions show their level; unrated ones
+  invite a rating. Recurring **occurrence snapshots** (R3.3) have no live reminder, so
+  tapping them opens the rating sheet only and they have no swipe actions.
 
 ### R7 — Priority (Apple's buckets) · depends: R2
 - **R7.1** — priority is Apple's four buckets — **None / Low / Medium / High** — the
@@ -329,7 +330,7 @@ population and its settings live in local preferences.
 
 - **Tasks** — a pinned **Needs rating** inbox over reminders grouped by **list**
   (each list is a tappable header that expands/collapses its reminders), plus a
-  **Browse Completed** entry (R6.5). Each reminder row is a real list row: a
+  **Completed** entry (R6.5). Each reminder row is a real list row: a
   **leading complete circle** (tap to complete → write-back → Needs-rating, R4.3/R6),
   the **title**, and a **due date + time subtitle** when the reminder has a due date;
   tapping the row (outside the circle) opens the editor. The grouping is a manual
@@ -438,6 +439,7 @@ Metroneo/
   | | completeCircleMovesReminderToNeedsRating | R4.3/R6 complete circle → write-back → inbox |
   | | browseCompletedTapShowsEditAndRate | R6.5 tap → combined edit-on-top / rate-below → persists |
   | | browseCompletedSwipeLeftEditsAndDeletes | R6.5 swipe-left → Edit + Delete; delete removes row |
+  | | completedFilterByList | R6.5 pick-by-list filter narrows the Completed list |
   | `CompanionPerformanceUITests` | performanceTabRendersEmptyState | R2 charts wiring / empty state |
   | | ratingFeedsPerformance | R2.3 rate → appears in Recent (sidecar → analytics) |
   | | ratingWithDurationsShowsEstimatedVsActual | D14/D17 rate w/ both durations → bars appear |

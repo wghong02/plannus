@@ -1,22 +1,35 @@
 import SwiftUI
 
-/// Browse Completed (DESIGN R6.5): every completed reminder (and recurring
-/// occurrence) in the current list scope, newest first. **Tap** a row to open the
-/// combined detail — the reminder's fields to **edit** on top and the **rating**
-/// below (R4 + R6.2), one Save. **Swipe left** reveals **Edit** (left) and **Delete**
-/// (right); swiping right does nothing. Recurring occurrence snapshots (R3.3) have
-/// no live reminder, so they open the rating sheet only and have no swipe actions.
+/// Completed (DESIGN R6.5): completed reminders (and recurring occurrences) newest
+/// first, with a **pick-by-list** filter (default **All Lists**). **Tap** a row to
+/// open the combined detail — the reminder's fields to **edit** on top and the
+/// **rating** below (R4 + R6.2), one Save. **Swipe left** reveals **Edit** (left) and
+/// **Delete** (right); swiping right does nothing. Recurring occurrence snapshots
+/// (R3.3) have no live reminder, so they open the rating sheet only and have no
+/// swipe actions.
 struct BrowseCompletedView: View {
     @EnvironmentObject private var taskService: TaskService
     @EnvironmentObject private var prefs: PerformancePreferencesService
     @EnvironmentObject private var custom: PerformanceCustomizationService
 
     @State private var items: [TaskItem] = []
+    /// Which list to show; `nil` ⇒ all lists (R6.5).
+    @State private var listFilter: String?
     @State private var ratingItem: TaskItem?
     @State private var editingItem: TaskItem?
 
     var body: some View {
         List {
+            Section {
+                Picker("List", selection: $listFilter) {
+                    Text("All Lists").tag(String?.none)
+                    ForEach(taskService.lists) { list in
+                        Text(list.title).tag(String?.some(list.id))
+                    }
+                }
+                .accessibilityIdentifier("completedListPicker")
+            }
+
             if items.isEmpty {
                 ContentUnavailableView("No completed reminders", systemImage: "clock.arrow.circlepath",
                                        description: Text("Reminders you complete here or in Apple Reminders show up here to rate."))
@@ -42,9 +55,10 @@ struct BrowseCompletedView: View {
         }
         // Full-width rows, consistent with the other list tabs.
         .contentMargins(.horizontal, 0, for: .scrollContent)
-        .navigationTitle("Browse Completed")
+        .navigationTitle("Completed")
         .navigationBarTitleDisplayMode(.inline)
         .task { await reload() }
+        .onChange(of: listFilter) { Task { await reload() } }
         .sheet(item: $ratingItem, onDismiss: { Task { await reload() } }) { RatingSheet(item: $0) }
         .sheet(item: $editingItem, onDismiss: { Task { await reload() } }) {
             CompanionReminderEditor(item: $0, includeRating: true)
@@ -79,5 +93,5 @@ struct BrowseCompletedView: View {
         }
     }
 
-    private func reload() async { items = await taskService.browseCompleted() }
+    private func reload() async { items = await taskService.browseCompleted(inList: listFilter) }
 }

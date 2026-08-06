@@ -165,14 +165,17 @@ public final class TaskService: ObservableObject {
         defaults.set(seen, forKey: Keys.recurringDue)
     }
 
-    /// All completed reminders (and recurring occurrences) in the current scope,
-    /// newest first — the **Browse Completed** surface (R6.5) for rating anything on
-    /// demand, including completions older than the Needs-rating window (R6.1a).
+    /// Completed reminders (and recurring occurrences) newest first — the
+    /// **Completed** surface (R6.5) for rating anything on demand, including
+    /// completions older than the Needs-rating window (R6.1a). Always within the
+    /// Settings list scope (R5.3); `inList` narrows further to one list (`nil` ⇒ all
+    /// lists in scope, the default).
     @MainActor
-    public func browseCompleted() async -> [TaskItem] {
+    public func browseCompleted(inList id: String? = nil) async -> [TaskItem] {
+        func included(_ listId: String) -> Bool { inScope(listId) && (id == nil || listId == id) }
         let completed = await store.completedReminders(since: .distantPast, inLists: nil)
-        let normal = completed.filter { inScope($0.listId) }.map(join)
-        let occ = sidecar.occurrences().filter { inScope($0.listId) }.map(TaskItem.init(occurrence:))
+        let normal = completed.filter { included($0.listId) }.map(join)
+        let occ = sidecar.occurrences().filter { included($0.listId) }.map(TaskItem.init(occurrence:))
         return (normal + occ).sorted { ($0.completionDate ?? .distantPast) > ($1.completionDate ?? .distantPast) }
     }
 

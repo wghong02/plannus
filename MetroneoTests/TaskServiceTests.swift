@@ -271,6 +271,25 @@ final class TaskServiceTests: XCTestCase {
     }
 
     @MainActor
+    func testCompletedFiltersByList() async { // spec: R6.5 (pick by list)
+        let work = ReminderList(id: "work", title: "Work", isDefault: true)
+        let personal = ReminderList(id: "personal", title: "Personal")
+        let store = FakeReminderStore(lists: [work, personal])
+        let (svc, _) = makeService(store)
+        store.seed(ReminderData(id: "w", title: "WorkDone", isCompleted: true, completionDate: Date(), listId: "work"))
+        store.seed(ReminderData(id: "p", title: "PersonalDone", isCompleted: true, completionDate: Date(), listId: "personal"))
+        await svc.refresh()
+
+        let all = await svc.browseCompleted()
+        XCTAssertEqual(Set(all.map(\.title)), ["WorkDone", "PersonalDone"], "default (nil) shows all lists")
+
+        let workOnly = await svc.browseCompleted(inList: "work")
+        XCTAssertEqual(workOnly.map(\.title), ["WorkDone"], "filtering shows only the picked list")
+        let personalOnly = await svc.browseCompleted(inList: "personal")
+        XCTAssertEqual(personalOnly.map(\.title), ["PersonalDone"])
+    }
+
+    @MainActor
     func testBrowseCompletedSurfacesOutOfWindowCompletions() async { // spec: R6.5
         let store = FakeReminderStore()
         let (svc, _) = makeService(store)

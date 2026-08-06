@@ -118,6 +118,27 @@ final class CompanionTasksUITests: UITestCase {
     }
 
     @MainActor
+    func testCompletedFilterByList() throws { // spec: R6.5 (pick by list)
+        let app = launchCompanion()
+        XCTAssertTrue(app.staticTexts["Work"].waitForExistence(timeout: 10))
+        // Complete a Work reminder so Completed spans two lists (seed has a Personal one).
+        app.staticTexts["Work"].tap()
+        let complete = app.buttons["complete-Review PR"]
+        XCTAssertTrue(complete.waitForExistence(timeout: 5)); complete.tap()
+
+        app.buttons["browseCompletedLink"].tap()
+        XCTAssertTrue(app.buttons["browseCompleted-Review PR"].waitForExistence(timeout: 5), "Work item shows")
+        XCTAssertTrue(app.buttons["browseCompleted-Call dentist"].exists, "Personal item shows under the default All Lists")
+
+        // Pick the Work list — only Work completions remain.
+        app.buttons["completedListPicker"].tap()
+        app.buttons["Work"].tap()
+        XCTAssertTrue(app.buttons["browseCompleted-Review PR"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["browseCompleted-Call dentist"].exists,
+                       "the Personal completion is hidden when filtered to Work")
+    }
+
+    @MainActor
     func testCompleteCircleMovesReminderToNeedsRating() throws { // spec: R4.3/R6.1
         let app = launchCompanion()
         XCTAssertTrue(app.staticTexts["Work"].waitForExistence(timeout: 10))

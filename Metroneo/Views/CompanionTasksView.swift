@@ -52,7 +52,7 @@ struct CompanionTasksView: View {
 
             Section {
                 NavigationLink { BrowseCompletedView() } label: {
-                    Label("Browse Completed", systemImage: "clock.arrow.circlepath")
+                    Label("Completed", systemImage: "clock.arrow.circlepath")
                 }
                 .accessibilityIdentifier("browseCompletedLink")
             }
