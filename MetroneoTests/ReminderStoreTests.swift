@@ -1,7 +1,7 @@
 import XCTest
 @testable import Metroneo
 
-/// Contract of the ``ReminderStore`` abstraction (DESIGNV2 R1/R4/R5), exercised
+/// Contract of the ``ReminderStore`` abstraction (DESIGN R1/R4/R5), exercised
 /// against the in-memory ``FakeReminderStore`` — the double the join/sidecar/
 /// analytics layers build on. Also covers the `EKReminder` priority mapping used
 /// by the real store.

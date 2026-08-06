@@ -1,6 +1,6 @@
 import XCTest
 
-/// The companion Settings tab (DESIGNV2 R5.3/R6.1a/R7.3): priority-weight editors,
+/// The companion Settings tab (DESIGN R5.3/R6.1a/R7.3): priority-weight editors,
 /// the needs-rating window, and the Reminders list scope.
 final class CompanionSettingsUITests: UITestCase {
 

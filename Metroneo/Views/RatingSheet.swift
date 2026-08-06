@@ -1,8 +1,8 @@
 import SwiftUI
 
-/// The dedicated rating sheet (DESIGNV2 R6.2) — the same shape as the old
-/// completion sheet: a 0–100 rating slider (D11), actual-time capture, and notes.
-/// Saving writes the sidecar and drops the item from the Needs-rating inbox.
+/// The dedicated rating sheet (DESIGN R6.2): a 0–100 rating slider (D11),
+/// actual-time capture, and notes. Saving writes the sidecar and drops the item
+/// from the Needs-rating inbox.
 struct RatingSheet: View {
     @EnvironmentObject private var taskService: TaskService
     @Environment(\.dismiss) private var dismiss

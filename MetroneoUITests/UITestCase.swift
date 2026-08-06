@@ -1,6 +1,6 @@
 import XCTest
 
-/// Shared base for the companion UI suites (DESIGNV2). Flows launch the app backed
+/// Shared base for the companion UI suites (DESIGN). Flows launch the app backed
 /// by the seeded in-memory fake reminder store (`-FAKE-REMINDERS`), so they run
 /// without EventKit or its permission prompt. Controls carry stable
 /// `accessibilityIdentifier`s.

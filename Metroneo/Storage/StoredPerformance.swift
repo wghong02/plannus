@@ -1,7 +1,7 @@
 import Foundation
 import SwiftData
 
-/// SwiftData row for the performance **sidecar** (DESIGNV2 R3.1) — the local
+/// SwiftData row for the performance **sidecar** (DESIGN R3.1) — the local
 /// metadata attached to an Apple reminder, keyed by its stable external id.
 @Model
 final class StoredPerformance {

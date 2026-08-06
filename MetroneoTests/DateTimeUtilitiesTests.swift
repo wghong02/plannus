@@ -2,8 +2,6 @@ import XCTest
 @testable import Metroneo
 
 final class DateTimeUtilitiesTests: XCTestCase {
-    // [DTU-07] `incompleteTasks(_:forDate:)` was retired in v2 — calendar placement
-    // is now `CalendarGrouping` (see CalendarGroupingTests).
 
     func testDeadlineComposition() {
         let cal = Calendar.current
@@ -51,7 +49,7 @@ final class DateTimeUtilitiesTests: XCTestCase {
         XCTAssertFalse(s.contains(":"))
     }
 
-    func testFormatDurationMinutesAndHours() { // spec: DUR-06
+    func testFormatDurationMinutesAndHours() { // spec: D14
         XCTAssertEqual(DateTimeUtilities.formatDuration(0), "0m")
         XCTAssertEqual(DateTimeUtilities.formatDuration(45), "45m")
         XCTAssertEqual(DateTimeUtilities.formatDuration(60), "1h")

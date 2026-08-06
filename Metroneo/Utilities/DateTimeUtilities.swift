@@ -1,6 +1,6 @@
 import Foundation
 
-/// Pure date/time helpers (DESIGN.md §5). Dates and times-of-day are both
+/// Pure date/time helpers. Dates and times-of-day are both
 /// modeled as `Date`; event start/end times are anchored to their day's date.
 public enum DateTimeUtilities {
 

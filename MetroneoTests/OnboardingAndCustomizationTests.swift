@@ -2,13 +2,13 @@ import XCTest
 @testable import Metroneo
 
 /// Onboarding gate + performance customization persistence (DESIGN.md test plan:
-/// TUT-01/02, LBL-01/02, CLR-01, TRND-02).
+/// D13/02, D8/02, D10, D12).
 final class OnboardingAndCustomizationTests: XCTestCase {
     private func makeDefaults() -> UserDefaults { UserDefaults(suiteName: "test-\(UUID().uuidString)")! }
 
     // MARK: - Onboarding (D13)
 
-    func testOnboardingShowsOnceAndReplays() { // spec: TUT-01, TUT-02
+    func testOnboardingShowsOnceAndReplays() { // spec: D13, D13
         let d = makeDefaults()
         XCTAssertTrue(OnboardingGate.shouldShow(d), "shown on first launch")
         OnboardingGate.markSeen(d)
@@ -20,7 +20,7 @@ final class OnboardingAndCustomizationTests: XCTestCase {
 
     // MARK: - Labels (D8)
 
-    func testLabelsCustomBlankFallbackAndPersist() { // spec: LBL-01, LBL-02
+    func testLabelsCustomBlankFallbackAndPersist() { // spec: D8, D8
         let d = makeDefaults()
         let s = PerformanceCustomizationService(defaults: d)
         XCTAssertEqual(s.label(for: .excellent), "Excellent", "default label")
@@ -55,7 +55,7 @@ final class OnboardingAndCustomizationTests: XCTestCase {
         XCTAssertEqual(c.priorityWeights, .defaults, "missing field defaults, decode doesn't fail")
     }
 
-    func testColorHexStorageAndInvalidFallback() { // spec: CLR-01
+    func testColorHexStorageAndInvalidFallback() { // spec: D10
         let d = makeDefaults()
         let s = PerformanceCustomizationService(defaults: d)
         XCTAssertNil(s.hex(for: .good), "unset → nil (caller uses Palette default)")
@@ -67,7 +67,7 @@ final class OnboardingAndCustomizationTests: XCTestCase {
 
     // MARK: - Trend (D12)
 
-    func testTrendThresholdsAndLabelsPersist() { // spec: TRND-02
+    func testTrendThresholdsAndLabelsPersist() { // spec: D12
         let d = makeDefaults()
         let s = PerformanceCustomizationService(defaults: d)
         s.setTrendThresholds(improving: 10, declining: -8)

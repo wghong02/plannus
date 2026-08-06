@@ -1,11 +1,10 @@
 import SwiftUI
 import Charts
 
-/// Performance tab for the companion (DESIGNV2 R2/R7). Same analytics + chart
-/// vocabulary as the Entry-based `PerformanceView`, but the population is the
-/// **rated `TaskItem`s** joined from Apple Reminders + the sidecar, and the average
-/// is **priority-weighted** (R7.3) using the configurable weights. There's no tag /
-/// collection filter — the companion scopes by Reminders list in Settings.
+/// Performance tab (DESIGN R2/R7, D16/D17): trend + distribution charts and
+/// estimated-vs-actual bars over the **rated `TaskItem`s** joined from Apple
+/// Reminders + the sidecar. The average is **priority-weighted** (R7.3) using the
+/// configurable weights; analytics scope is set by Reminders list in Settings.
 struct CompanionPerformanceView: View {
     @EnvironmentObject private var taskService: TaskService
     @EnvironmentObject private var prefs: PerformancePreferencesService

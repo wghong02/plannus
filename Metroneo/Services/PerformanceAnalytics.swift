@@ -1,6 +1,6 @@
 import Foundation
 
-/// Time window for performance analytics (DESIGN.md §8).
+/// Time window for performance analytics (DESIGN D16).
 public enum PerformancePeriod: String, CaseIterable {
     case week, month, threeMonths, year, allTime, custom
 
@@ -103,14 +103,13 @@ public struct PerformanceDataPoint: Equatable {
 }
 
 /// A single rated data point for analytics — a date to place it on the timeline
-/// and its 0–100 rating. In v2 the population is **rated entries** (D6.7): an
-/// entry with a recorded `performanceRating`, placed by its `completedAt` and
-/// falling back to its time key when rated without being completed (D6 line note).
+/// and its 0–100 rating. The population is **rated reminders** (R2.3): a `TaskItem`
+/// whose sidecar has a rating, placed by its completion date, else its due date.
 public struct RatedSample: Equatable, Sendable {
     /// Placement date on the timeline (never nil for a mapped sample).
     public var completedAt: Date?
     public var performanceRating: Int
-    /// Priority weight for the weighted average (DESIGNV2 R7.3); `1` = unweighted.
+    /// Priority weight for the weighted average (DESIGN R7.3); `1` = unweighted.
     public var weight: Double
 
     public init(completedAt: Date?, performanceRating: Int, weight: Double = 1) {
@@ -120,10 +119,10 @@ public struct RatedSample: Equatable, Sendable {
     }
 }
 
-/// Pure analytics over rated samples (DESIGN.md §8; population per D6.7).
+/// Pure analytics over rated samples (DESIGN D16; population per R2.3).
 public enum PerformanceAnalytics {
 
-    /// Maps rated `TaskItem`s to samples (DESIGNV2 R2.3), each carrying its priority
+    /// Maps rated `TaskItem`s to samples (DESIGN R2.3), each carrying its priority
     /// weight (R7.3): only rated items count, placed by `placementDate`
     /// (completion, else due).
     public static func samples(from items: [TaskItem], weights: PriorityWeights = .defaults) -> [RatedSample] {
@@ -177,7 +176,7 @@ public enum PerformanceAnalytics {
         }
     }
 
-    /// `durationTotals` over `TaskItem`s (DESIGNV2 R2/D17): estimated + actual from
+    /// `durationTotals` over `TaskItem`s (DESIGN R2/D17): estimated + actual from
     /// the sidecar, placed by `placementDate`, scoped to the period.
     public static func durationTotals(
         _ items: [TaskItem],
@@ -199,7 +198,7 @@ public enum PerformanceAnalytics {
     }
 
     /// Rated `TaskItem`s in the selected period, newest first, capped at `limit` —
-    /// the Performance "Recent" list over the companion's population (DESIGNV2 R2).
+    /// the Performance "Recent" list over the companion's population (DESIGN R2).
     public static func windowedRated(
         _ items: [TaskItem],
         period: PerformancePeriod,
@@ -220,8 +219,8 @@ public enum PerformanceAnalytics {
     }
 
     /// **Priority-weighted** average performance across the given tasks (0 if empty
-    /// or zero total weight) — `Σ(rating·weight) / Σ(weight)` (DESIGNV2 R7.3). With
-    /// every weight `1` (the default / Entry path) this is the plain mean.
+    /// or zero total weight) — `Σ(rating·weight) / Σ(weight)` (DESIGN R7.3). With
+    /// every weight `1` (equal weights) this is the plain mean.
     public static func average(_ tasks: [RatedSample]) -> Double {
         let totalWeight = tasks.reduce(0.0) { $0 + $1.weight }
         guard totalWeight > 0 else { return 0 }

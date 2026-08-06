@@ -20,7 +20,7 @@ public struct TrendLabels: Codable, Equatable, Sendable {
     )
 }
 
-/// Weights the analytics **average** by a reminder's priority (DESIGNV2 R7.3):
+/// Weights the analytics **average** by a reminder's priority (DESIGN R7.3):
 /// higher priority ⇒ higher weight, so important work counts more. Defaults
 /// None/Low/Medium/High = 1/2/3/4; configurable in Settings.
 public struct PriorityWeights: Codable, Equatable, Sendable {

@@ -2,7 +2,7 @@ import Foundation
 import Combine
 import EventKit
 
-/// `ReminderStore` backed by EventKit / Apple Reminders (DESIGNV2 R1). Maps
+/// `ReminderStore` backed by EventKit / Apple Reminders (DESIGN R1). Maps
 /// `EKReminder` ⇄ ``ReminderData`` so callers stay EventKit-free and testable.
 public final class EventKitReminderStore: ReminderStore {
     private let store: EKEventStore

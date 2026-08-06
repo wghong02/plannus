@@ -1,7 +1,7 @@
 import Foundation
 import Combine
 
-/// Rating thresholds for performance categorization (DESIGN.md §4.3).
+/// Rating thresholds for performance categorization (DESIGN D8).
 public struct PerformanceCutoffs: Codable, Equatable {
     public var fair: Int
     public var good: Int
@@ -31,7 +31,7 @@ public enum PerformanceLevel: String, CaseIterable {
 }
 
 /// Persists ``PerformanceCutoffs`` under `@performance_cutoffs` and classifies
-/// ratings (DESIGN.md §4.3).
+/// ratings (DESIGN D8).
 public final class PerformancePreferencesService: ObservableObject {
     public static let storageKey = "@performance_cutoffs"
 

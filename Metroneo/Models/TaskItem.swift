@@ -1,6 +1,6 @@
 import Foundation
 
-/// The local performance metadata Metroneo attaches to a reminder (DESIGNV2 R3) —
+/// The local performance metadata Metroneo attaches to a reminder (DESIGN R3) —
 /// the only thing that lives in Metroneo's own store; everything else is Apple's.
 public struct PerformanceMetadata: Equatable, Sendable {
     public var rating: Int?
@@ -23,7 +23,7 @@ public struct PerformanceMetadata: Equatable, Sendable {
     }
 }
 
-/// The companion's read model (DESIGNV2 R2): a reminder (`ReminderData`, from
+/// The companion's read model (DESIGN R2): a reminder (`ReminderData`, from
 /// EventKit) joined with its local `PerformanceMetadata`. The UI and analytics
 /// consume `TaskItem`s; the join is keyed by the reminder's external id.
 public struct TaskItem: Identifiable, Equatable, Sendable {
@@ -49,7 +49,7 @@ public struct TaskItem: Identifiable, Equatable, Sendable {
 
     /// A recorded rating (R2.3) — the analytics population.
     public var isRated: Bool { rating != nil }
-    /// Where the item sits on the analytics timeline: completion, else due (D6.7).
+    /// Where the item sits on the analytics timeline: completion, else due (R2.3).
     public var placementDate: Date? { completionDate ?? dueDate }
 
     public init(reminder r: ReminderData, metadata m: PerformanceMetadata) {

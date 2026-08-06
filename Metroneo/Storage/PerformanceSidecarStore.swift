@@ -1,7 +1,7 @@
 import Foundation
 import SwiftData
 
-/// Local SwiftData store for the performance **sidecar** (DESIGNV2 R3): the
+/// Local SwiftData store for the performance **sidecar** (DESIGN R3): the
 /// `{ rating, notes, estimated, actual }` Metroneo attaches to reminders, keyed by
 /// external id, with per-entry writes and **orphan reconciliation** (R3.2).
 public final class PerformanceSidecarStore {

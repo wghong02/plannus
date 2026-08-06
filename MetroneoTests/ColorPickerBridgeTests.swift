@@ -10,7 +10,7 @@ final class ColorPickerBridgeTests: XCTestCase {
 
     private func makeDefaults() -> UserDefaults { UserDefaults(suiteName: "test-\(UUID().uuidString)")! }
 
-    func testHexToColorToHexRoundTrips() { // spec: CLR-04
+    func testHexToColorToHexRoundTrips() { // spec: D10
         for hex in ["#1B5E20FF", "#123456CC", "#FF0000FF", "#00FF0080", "#0000FFFF"] {
             let rgba = ColorHex.parse(hex)!
             let backHex = ColorHex.string(Color(rgba).rgbaComponents)
@@ -18,7 +18,7 @@ final class ColorPickerBridgeTests: XCTestCase {
         }
     }
 
-    func testPickedColorPersistsThroughServiceAndReloads() { // spec: CLR-04 (integration)
+    func testPickedColorPersistsThroughServiceAndReloads() { // spec: D10 (integration)
         let d = makeDefaults()
         let s = PerformanceCustomizationService(defaults: d)
 
@@ -36,7 +36,7 @@ final class ColorPickerBridgeTests: XCTestCase {
         XCTAssertEqual(shown.a, target.a, accuracy: 1.0 / 255, "opacity round-trips")
     }
 
-    func testUnsetColorShowsPaletteDefault() { // spec: CLR-02
+    func testUnsetColorShowsPaletteDefault() { // spec: D10
         let s = PerformanceCustomizationService(defaults: makeDefaults())
         // With no override, the picker's `get` returns the Palette default for the level.
         XCTAssertEqual(ColorHex.string(s.color(for: .excellent).rgbaComponents),

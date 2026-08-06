@@ -1,9 +1,9 @@
 import SwiftUI
 
-/// The single "Performance customization" screen (D8/D10/D12 consolidated): rating
-/// cutoffs, per-level labels + colors, and the overall-trend thresholds/labels.
-/// Carried over from v1 unchanged — it reads/writes only the preferences and
-/// customization services, so it's shared by the companion Settings tab.
+/// The single "Performance customization" screen (D8/D10/D12): rating cutoffs,
+/// per-level labels + colors, and the overall-trend thresholds/labels. It reads and
+/// writes only the preferences and customization services, so the Settings tab can
+/// present it directly.
 struct PerformanceCustomizationScreen: View {
     @EnvironmentObject private var preferences: PerformancePreferencesService
     @EnvironmentObject private var custom: PerformanceCustomizationService

@@ -1,6 +1,6 @@
 import XCTest
 
-/// The companion Performance tab (DESIGNV2 R2/R7), driven by the seeded in-memory
+/// The companion Performance tab (DESIGN R2/R7), driven by the seeded in-memory
 /// fake store. Charts render off the rated `TaskItem` population; rating a reminder
 /// in the Tasks tab feeds this tab through the sidecar.
 final class CompanionPerformanceUITests: UITestCase {

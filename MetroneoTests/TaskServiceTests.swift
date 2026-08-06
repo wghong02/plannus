@@ -1,7 +1,7 @@
 import XCTest
 @testable import Metroneo
 
-/// The read-model join (DESIGNV2 R2/R3/R6): fetch reminders from the fake store,
+/// The read-model join (DESIGN R2/R3/R6): fetch reminders from the fake store,
 /// join the sidecar, split out the Needs-rating inbox and the rated population, and
 /// reconcile orphaned sidecar rows on refresh.
 final class TaskServiceTests: XCTestCase {

@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Settings tab for the companion (DESIGNV2). Companion-specific controls —
+/// Settings tab for the companion (DESIGN). Companion-specific controls —
 /// **priority weights** (R7.3), **Reminders list scope** (R5.3), and the
 /// **needs-rating window** (R6.1a) — plus the carried-over Performance
 /// customization screen (D8/D10/D12) and About.
@@ -8,7 +8,12 @@ struct CompanionSettingsView: View {
     @EnvironmentObject private var taskService: TaskService
     @EnvironmentObject private var custom: PerformanceCustomizationService
 
+    /// Store backing the onboarding "seen" flag, for the tutorial-replay button.
+    private let defaults: UserDefaults
     @State private var windowDays = 14
+    @State private var replayed = false
+
+    init(defaults: UserDefaults = .standard) { self.defaults = defaults }
 
     private static var appVersion: String {
         let info = Bundle.main.infoDictionary
@@ -52,6 +57,18 @@ struct CompanionSettingsView: View {
             Section("Personal Preferences") {
                 NavigationLink("Performance") { PerformanceCustomizationScreen() }
                     .accessibilityIdentifier("performanceSettingsLink")
+            }
+
+            Section("Help") {
+                Button("Show Tutorial Again") {
+                    OnboardingGate.replay(defaults)
+                    replayed = true
+                }
+                .accessibilityIdentifier("replayTutorialButton")
+                if replayed {
+                    Text("The walkthrough will appear next time you open Metroneo.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
             }
 
             Section("About") {

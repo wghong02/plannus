@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// The companion Tasks tab (DESIGNV2 R2/R5/R6): a **Needs rating** inbox pinned on
+/// The companion Tasks tab (DESIGN R2/R5/R6): a **Needs rating** inbox pinned on
 /// top, then one **expandable group per Reminders list**. Completing a reminder
 /// writes back to Apple Reminders; tapping a needs-rating item opens the rating
 /// sheet.

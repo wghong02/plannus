@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Gates the companion UI on Reminders access (DESIGNV2 R1.1): shows a grant
+/// Gates the companion UI on Reminders access (DESIGN R1.1): shows a grant
 /// prompt until access is granted, then the wrapped content.
 struct ReminderAccessGate<Content: View>: View {
     @EnvironmentObject private var taskService: TaskService

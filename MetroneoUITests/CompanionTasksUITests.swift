@@ -1,6 +1,6 @@
 import XCTest
 
-/// The companion Tasks tab (DESIGNV2 R2/R5/R6), driven by the seeded in-memory
+/// The companion Tasks tab (DESIGN R2/R5/R6), driven by the seeded in-memory
 /// fake reminder store: per-list expandable groups, the Needs-rating inbox, and
 /// the rating sheet.
 final class CompanionTasksUITests: UITestCase {

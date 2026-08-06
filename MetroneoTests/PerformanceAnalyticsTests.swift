@@ -1,8 +1,8 @@
 import XCTest
 @testable import Metroneo
 
-/// Analytics math (unchanged from v1 — DESIGN.md §8 / PA-*), now over
-/// ``RatedSample`` (population per D6.7).
+/// Analytics math (DESIGN D16) over ``RatedSample`` — the rated-reminder
+/// population (R2.3) with the priority-weighted average (R7.3).
 final class PerformanceAnalyticsTests: XCTestCase {
 
     private func sample(_ rating: Int, _ completedKey: String) -> RatedSample {
@@ -170,7 +170,7 @@ final class PerformanceAnalyticsTests: XCTestCase {
 
     // MARK: - Estimated vs Actual duration totals (D17)
 
-    func testDurationTotalsSumsBothDurationsInWindow() { // spec: DUR-05
+    func testDurationTotalsSumsBothDurationsInWindow() { // spec: D17
         let now = day("2026-07-22")
         let items = [
             item(nil, .none, "2026-07-20", estimated: 30, actual: 45), // both, in week + month
@@ -196,7 +196,7 @@ final class PerformanceAnalyticsTests: XCTestCase {
         XCTAssertEqual(all.actual, 110)
     }
 
-    func testDurationTotalsEmptyWhenNoneQualify() { // spec: DUR-05
+    func testDurationTotalsEmptyWhenNoneQualify() { // spec: D17
         let now = day("2026-07-22")
         let items = [item(nil, .none, "2026-07-20", estimated: 30, actual: nil),
                      item(nil, .none, "2026-07-20", estimated: nil, actual: nil)]
@@ -204,7 +204,7 @@ final class PerformanceAnalyticsTests: XCTestCase {
         XCTAssertEqual(totals, DurationTotals(estimated: 0, actual: 0, count: 0))
     }
 
-    // MARK: - Priority-weighted average + TaskItem population (DESIGNV2 R7.3 / R2)
+    // MARK: - Priority-weighted average + TaskItem population (DESIGN R7.3 / R2)
 
     private func item(_ rating: Int?, _ priority: ReminderPriority, _ completedKey: String,
                       estimated: Int? = nil, actual: Int? = nil) -> TaskItem {

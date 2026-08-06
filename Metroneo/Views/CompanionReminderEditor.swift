@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// The single editor for a companion reminder (DESIGNV2 R4/R7). Writes the reminder
+/// The single editor for a companion reminder (DESIGN R4/R7). Writes the reminder
 /// half (title/notes/due/priority/list/early-reminder alarm) back to Apple Reminders
 /// through `TaskService`, and the estimated duration to the local sidecar. Recurrence
 /// is read-only (R-recurrence): a repeating reminder shows a note but is edited in

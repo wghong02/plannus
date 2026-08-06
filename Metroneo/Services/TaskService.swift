@@ -1,7 +1,7 @@
 import Foundation
 import Combine
 
-/// The companion's read/write hub (DESIGNV2 R2/R3/R6): fetches reminders from the
+/// The companion's read/write hub (DESIGN R2/R3/R6): fetches reminders from the
 /// `ReminderStore`, joins the local performance sidecar, reconciles orphans, and
 /// exposes the three lists the UI needs. Performance writes go to the sidecar;
 /// reminder writes (R4) forward to the store (added when the editor lands).

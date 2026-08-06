@@ -1,7 +1,7 @@
 import Foundation
 import Combine
 
-/// The companion's abstraction over the user's Apple Reminders (DESIGNV2 R1). The
+/// The companion's abstraction over the user's Apple Reminders (DESIGN R1). The
 /// real store is ``EventKitReminderStore``; tests inject an in-memory fake, so the
 /// join / sidecar / analytics logic above this never touches EventKit or its
 /// permission prompt (R1.2). Nothing above the store sees an `EKReminder` — the
@@ -24,7 +24,7 @@ public enum ReminderPriority: Int, CaseIterable, Sendable, Equatable {
 }
 
 /// A Reminders list (an `EKCalendar` of type reminder) — the companion's grouping
-/// unit, replacing the old Collections (R5).
+/// unit (R5).
 public struct ReminderList: Identifiable, Equatable, Sendable {
     public let id: String
     public var title: String
@@ -83,7 +83,7 @@ public struct ReminderData: Identifiable, Equatable, Sendable {
     }
 }
 
-/// Read/write access to Apple Reminders (DESIGNV2 R1/R4/R5). All reads are async
+/// Read/write access to Apple Reminders (DESIGN R1/R4/R5). All reads are async
 /// (EventKit fetches on a background queue); writes are fire-and-forget and commit
 /// immediately so changes sync out.
 public protocol ReminderStore: AnyObject {

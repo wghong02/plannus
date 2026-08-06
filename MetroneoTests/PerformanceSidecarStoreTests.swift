@@ -1,12 +1,12 @@
 import XCTest
 @testable import Metroneo
 
-/// The performance sidecar (DESIGNV2 R3): per-entry upsert/read/drop and the
+/// The performance sidecar (DESIGN R3): per-entry upsert/read/drop and the
 /// orphan-reconciliation invariant (R3.2).
 final class PerformanceSidecarStoreTests: XCTestCase {
     private func make() -> PerformanceSidecarStore { try! PerformanceSidecarStore(inMemory: true) }
 
-    func testUpsertReadAndDropWhenEmpty() { // spec: SIDE-01
+    func testUpsertReadAndDropWhenEmpty() { // spec: R3.1
         let s = make()
         XCTAssertEqual(s.metadata(for: "x"), .empty, "unset → empty")
 
@@ -24,7 +24,7 @@ final class PerformanceSidecarStoreTests: XCTestCase {
         XCTAssertTrue(s.storedIds().isEmpty, "empty metadata drops the row")
     }
 
-    func testReconcilePrunesOrphans() { // spec: SIDE-02 (R3.2)
+    func testReconcilePrunesOrphans() { // spec: R3.2 (R3.2)
         let s = make()
         s.setMetadata(PerformanceMetadata(rating: 1), for: "live")
         s.setMetadata(PerformanceMetadata(rating: 2), for: "gone")

@@ -1,13 +1,13 @@
 import Foundation
 
-/// The lead-time options a reminder can take (D9.1): a fixed preset set plus a
-/// custom duration. Every value is expressed in **minutes before** the time key
-/// (`0` = "at time").
+/// The early-reminder lead options a reminder's alarm can take (R4.2): a fixed
+/// preset set plus a custom duration. Every value is expressed in **minutes
+/// before** the due date (`0` = "at time"), mapped to an `EKAlarm.relativeOffset`.
 public enum ReminderLead: Equatable, Hashable, Sendable {
     case preset(minutes: Int)
     case custom(minutes: Int)
 
-    /// The preset ladder shown in the picker (D9.1 / REM-02).
+    /// The preset ladder shown in the editor's early-reminder picker (R4.2).
     public static let presets: [Int] = [0, 5, 15, 30, 60, 120, 1440, 2880]
 
     public var minutes: Int {
@@ -16,7 +16,7 @@ public enum ReminderLead: Equatable, Hashable, Sendable {
         }
     }
 
-    /// A custom lead must be > 0; "at time" is the `0` preset (REM-02).
+    /// A custom lead must be > 0; "at time" is the `0` preset.
     public var isValid: Bool {
         switch self {
         case .preset(let m): return Self.presets.contains(m)
@@ -27,7 +27,7 @@ public enum ReminderLead: Equatable, Hashable, Sendable {
     /// Whether a lead of `minutes` is one of the presets (else it's a custom lead).
     public static func isPreset(_ minutes: Int) -> Bool { presets.contains(minutes) }
 
-    /// A human label for a lead of `minutes` before the time key (D9.1) — used for
+    /// A human label for a lead of `minutes` before the due date (R4.2) — used for
     /// both presets and custom values (e.g. 0 → "At time", 90 → "1h 30m before",
     /// 2880 → "2 days before").
     public static func label(minutes: Int) -> String {

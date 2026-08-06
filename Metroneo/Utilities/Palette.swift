@@ -3,10 +3,10 @@ import SwiftUI
 import UIKit
 #endif
 
-/// App color palette and shared surface styling. Replaces the old hex-string
-/// parsing: performance colors are `Color` constants (saturated fills that read
-/// well with white text in both light and dark mode), and surfaces use adaptive
-/// system colors so the UI is correct in dark mode.
+/// App color palette and shared surface styling. Performance colors are `Color`
+/// constants (saturated fills that read well with white text in both light and
+/// dark mode), and surfaces use adaptive system colors so the UI is correct in
+/// dark mode.
 extension PerformanceLevel {
     /// Fill color for this level; pairs with white text.
     var color: Color {
