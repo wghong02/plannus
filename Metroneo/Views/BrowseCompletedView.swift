@@ -20,16 +20,6 @@ struct BrowseCompletedView: View {
 
     var body: some View {
         List {
-            Section {
-                Picker("List", selection: $listFilter) {
-                    Text("All Lists").tag(String?.none)
-                    ForEach(taskService.lists) { list in
-                        Text(list.title).tag(String?.some(list.id))
-                    }
-                }
-                .accessibilityIdentifier("completedListPicker")
-            }
-
             if items.isEmpty {
                 ContentUnavailableView("No completed reminders", systemImage: "clock.arrow.circlepath",
                                        description: Text("Reminders you complete here or in Apple Reminders show up here to rate."))
@@ -57,6 +47,11 @@ struct BrowseCompletedView: View {
         .contentMargins(.horizontal, 0, for: .scrollContent)
         .navigationTitle("Completed")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                ListFilterMenu(lists: taskService.lists, selection: $listFilter, identifier: "completedListPicker")
+            }
+        }
         .task { await reload() }
         .onChange(of: listFilter) { Task { await reload() } }
         .sheet(item: $ratingItem, onDismiss: { Task { await reload() } }) { RatingSheet(item: $0) }

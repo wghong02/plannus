@@ -271,6 +271,25 @@ final class TaskServiceTests: XCTestCase {
     }
 
     @MainActor
+    func testRatedPopulationFiltersByListForPerformance() async { // spec: D16 (performance list filter)
+        let work = ReminderList(id: "work", title: "Work", isDefault: true)
+        let home = ReminderList(id: "home", title: "Home")
+        let store = FakeReminderStore(lists: [work, home])
+        let (svc, sidecar) = makeService(store)
+        store.seed(ReminderData(id: "w", title: "W", isCompleted: true, completionDate: Date(), listId: "work"))
+        store.seed(ReminderData(id: "h", title: "H", isCompleted: true, completionDate: Date(), listId: "home"))
+        sidecar.setMetadata(PerformanceMetadata(rating: 80), for: "w")
+        sidecar.setMetadata(PerformanceMetadata(rating: 20), for: "h")
+        await svc.refresh()
+
+        XCTAssertEqual(svc.ratedItems.count, 2, "unfiltered rated population keeps both lists")
+        let workRated = PerformanceAnalytics.inList(svc.ratedItems, "work")
+        XCTAssertEqual(workRated.map(\.title), ["W"], "the Performance list filter narrows to one list")
+        XCTAssertEqual(PerformanceAnalytics.average(PerformanceAnalytics.samples(from: workRated)), 80,
+                       "and the average reflects only that list")
+    }
+
+    @MainActor
     func testCompletedFiltersByList() async { // spec: R6.5 (pick by list)
         let work = ReminderList(id: "work", title: "Work", isDefault: true)
         let personal = ReminderList(id: "personal", title: "Personal")

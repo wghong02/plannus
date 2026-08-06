@@ -38,6 +38,36 @@ final class CompanionPerformanceUITests: UITestCase {
     }
 
     @MainActor
+    func testPerformanceFilterByList() throws { // spec: D16 (list filter, UI + content)
+        let app = launchCompanion()
+
+        // Rate a Personal completion (Call dentist) and a Work one (Review PR).
+        let personal = app.buttons["needsRating-Call dentist"]
+        XCTAssertTrue(personal.waitForExistence(timeout: 10)); personal.tap()
+        app.buttons["saveRatingButton"].tap()
+
+        XCTAssertTrue(app.staticTexts["Work"].waitForExistence(timeout: 5))
+        app.staticTexts["Work"].tap()
+        let complete = app.buttons["complete-Review PR"]
+        XCTAssertTrue(complete.waitForExistence(timeout: 5)); complete.tap()
+        let work = app.buttons["needsRating-Review PR"]
+        XCTAssertTrue(work.waitForExistence(timeout: 5)); work.tap()
+        app.buttons["saveRatingButton"].tap()
+
+        // Both show in Recent Performance under the default All Lists.
+        app.tabBars.firstMatch.buttons["Performance"].tap()
+        XCTAssertTrue(app.staticTexts["Review PR"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Call dentist"].exists)
+
+        // Filter to Work → only the Work-list rating remains in the content.
+        app.buttons["performanceListPicker"].tap()
+        app.buttons["Work"].tap()
+        XCTAssertTrue(app.staticTexts["Review PR"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.staticTexts["Call dentist"].exists,
+                       "the Personal-list rating is excluded when the analytics are filtered to Work")
+    }
+
+    @MainActor
     func testRatingWithDurationsShowsEstimatedVsActual() throws { // spec: D14/D17
         let app = launchCompanion()
 

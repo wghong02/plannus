@@ -13,6 +13,8 @@ struct CompanionPerformanceView: View {
     @State private var period: PerformancePeriod = .month
     @State private var customStart = Date()
     @State private var selectedPeriod: String?
+    /// Which list the analytics cover; `nil` ⇒ all lists (D16 list filter).
+    @State private var listFilter: String?
 
     private struct Derived {
         let series: [PerformanceDataPoint]
@@ -26,7 +28,7 @@ struct CompanionPerformanceView: View {
     }
 
     private func computeDerived() -> Derived {
-        let rated = taskService.ratedItems
+        let rated = PerformanceAnalytics.inList(taskService.ratedItems, listFilter)
         let samples = PerformanceAnalytics.samples(from: rated, weights: custom.priorityWeights)
         return Derived(
             series: PerformanceAnalytics.trendSeries(samples, period: period, cutoffs: prefs.cutoffs, customStart: customStart),
@@ -65,6 +67,11 @@ struct CompanionPerformanceView: View {
         }
         .pageBackground()
         .navigationTitle("Performance")
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                ListFilterMenu(lists: taskService.lists, selection: $listFilter, identifier: "performanceListPicker")
+            }
+        }
         .task { await taskService.refresh() }
     }
 

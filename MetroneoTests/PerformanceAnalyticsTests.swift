@@ -60,6 +60,20 @@ final class PerformanceAnalyticsTests: XCTestCase {
         XCTAssertEqual(PerformanceAnalytics.granularity(for: .year), .monthly)
     }
 
+    func testInListFilter() { // spec: D16 (list filter)
+        func rated(_ id: String, _ listId: String, _ rating: Int) -> TaskItem {
+            TaskItem(reminder: ReminderData(id: id, title: id, isCompleted: true,
+                                            completionDate: day("2026-07-20"), listId: listId),
+                     metadata: PerformanceMetadata(rating: rating))
+        }
+        let all = [rated("a", "work", 90), rated("b", "home", 40)]
+        XCTAssertEqual(PerformanceAnalytics.inList(all, nil).map(\.title), ["a", "b"], "nil ⇒ all lists")
+        XCTAssertEqual(PerformanceAnalytics.inList(all, "work").map(\.title), ["a"], "narrows to one list")
+        // The filtered population drives the analytics.
+        XCTAssertEqual(PerformanceAnalytics.average(PerformanceAnalytics.samples(from: PerformanceAnalytics.inList(all, "work"))), 90)
+        XCTAssertEqual(PerformanceAnalytics.average(PerformanceAnalytics.samples(from: PerformanceAnalytics.inList(all, "home"))), 40)
+    }
+
     func testPeriodLabels() {
         XCTAssertEqual(PerformancePeriod.week.label, "Week")
         XCTAssertEqual(PerformancePeriod.month.label, "Month")

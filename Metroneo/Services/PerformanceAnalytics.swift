@@ -122,6 +122,13 @@ public struct RatedSample: Equatable, Sendable {
 /// Pure analytics over rated samples (DESIGN D16; population per R2.3).
 public enum PerformanceAnalytics {
 
+    /// Rated `TaskItem`s limited to one Reminders list (DESIGN D16 list filter);
+    /// `listId == nil` ⇒ all lists.
+    public static func inList(_ items: [TaskItem], _ listId: String?) -> [TaskItem] {
+        guard let listId else { return items }
+        return items.filter { $0.listId == listId }
+    }
+
     /// Maps rated `TaskItem`s to samples (DESIGN R2.3), each carrying its priority
     /// weight (R7.3): only rated items count, placed by `placementDate`
     /// (completion, else due).

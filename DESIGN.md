@@ -229,8 +229,9 @@ lists are the only grouping.
 - **R6.5 — Completed.** The Needs-rating inbox only surfaces completions *inside* the
   look-back window (R6.1a), so rating something finished earlier needs its own
   surface. Tasks offers a **Completed** view: all completed reminders (within the
-  Settings list scope, newest first) with a **pick-by-list filter** (default **All
-  Lists**, or narrow to one list). **Tapping** a row opens a **combined detail** —
+  Settings list scope, newest first) with a **pick-by-list filter** — a menu in the
+  **top-right** corner (default **All Lists**, or narrow to one list), shared with the
+  Performance tab via `ListFilterMenu`. **Tapping** a row opens a **combined detail** —
   the reminder's fields to **edit on top** (title, notes, due, priority, list,
   alarms; R4) and the **rating below** (rating, estimated/actual, performance notes;
   R6.2) — with one Save that writes both; editing stays valid on a completed reminder
@@ -314,6 +315,10 @@ population and its settings live in local preferences.
 - A **period selector** picks the window: **Week / Month / Quarter / Year / All Time
   / Custom** (the 3-month option reads "Quarter"). The selected period sets the
   bucket granularity and scopes the stats, bars, and recent list.
+- A **pick-by-list filter** (the same top-right `ListFilterMenu` as Completed,
+  default **All Lists**) narrows the whole analytics population to one Reminders list
+  — the charts, stat cards, duration bars, and recent list all recompute from the
+  filtered rated set (`PerformanceAnalytics.inList`).
 
 ### D17 — estimated vs. actual time bars
 - Two bars — total estimated vs. total actual minutes — across the period's
@@ -443,6 +448,7 @@ Metroneo/
   | `CompanionPerformanceUITests` | performanceTabRendersEmptyState | R2 charts wiring / empty state |
   | | ratingFeedsPerformance | R2.3 rate → appears in Recent (sidecar → analytics) |
   | | ratingWithDurationsShowsEstimatedVsActual | D14/D17 rate w/ both durations → bars appear |
+  | | performanceFilterByList | D16 top-right list filter narrows the analytics content |
   | `CompanionSettingsUITests` | settingsRendersCompanionControls | R5.3/R6.1a/R7.3 controls render |
   | | listScopeNarrowsTasks | R5.3 scope narrows Tasks + inbox end-to-end |
   | | listScopeTogglesEachListOffAndBackOn | R5.3 each/last list toggles off (no revert) + on |
