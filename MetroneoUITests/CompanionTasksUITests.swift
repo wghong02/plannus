@@ -75,6 +75,49 @@ final class CompanionTasksUITests: UITestCase {
     }
 
     @MainActor
+    func testBrowseCompletedTapShowsEditAndRate() throws { // spec: R6.5
+        let app = launchCompanion()
+        XCTAssertTrue(app.staticTexts["Work"].waitForExistence(timeout: 10))
+        app.buttons["browseCompletedLink"].tap()
+
+        let row = app.buttons["browseCompleted-Call dentist"]
+        XCTAssertTrue(row.waitForExistence(timeout: 5))
+        row.tap()
+
+        // Combined detail: reminder fields (edit) on top, rating (rate) below.
+        let title = app.textFields["reminderTitleField"]
+        XCTAssertTrue(title.waitForExistence(timeout: 5), "the edit UI (all reminder fields) is on top")
+        XCTAssertTrue(app.textFields["ratingActualField"].exists, "the rate UI is below")
+        XCTAssertEqual(title.value as? String, "Call dentist", "pre-filled with the reminder")
+
+        title.tap(); title.typeText(" back")
+        app.buttons["saveReminderButton"].tap()
+        XCTAssertTrue(app.buttons["browseCompleted-Call dentist back"].waitForExistence(timeout: 5),
+                      "editing fields from the combined detail persists")
+    }
+
+    @MainActor
+    func testBrowseCompletedSwipeLeftEditsAndDeletes() throws { // spec: R6.5
+        let app = launchCompanion()
+        XCTAssertTrue(app.staticTexts["Work"].waitForExistence(timeout: 10))
+        app.buttons["browseCompletedLink"].tap()
+
+        let row = app.buttons["browseCompleted-Call dentist"]
+        XCTAssertTrue(row.waitForExistence(timeout: 5))
+
+        // Swiping left reveals BOTH Edit and Delete. (Right-swipe has no row actions —
+        // it's left to the system back-gesture — so it isn't asserted here.)
+        row.swipeLeft()
+        XCTAssertTrue(app.buttons["editCompleted-Call dentist"].waitForExistence(timeout: 5), "Edit is revealed")
+        let del = app.buttons["deleteCompleted-Call dentist"]
+        XCTAssertTrue(del.exists, "Delete is revealed")
+        del.tap()
+
+        XCTAssertFalse(app.buttons["browseCompleted-Call dentist"].waitForExistence(timeout: 5),
+                       "deleting removes the completed reminder from the list")
+    }
+
+    @MainActor
     func testCompleteCircleMovesReminderToNeedsRating() throws { // spec: R4.3/R6.1
         let app = launchCompanion()
         XCTAssertTrue(app.staticTexts["Work"].waitForExistence(timeout: 10))

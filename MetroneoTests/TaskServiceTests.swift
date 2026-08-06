@@ -232,6 +232,45 @@ final class TaskServiceTests: XCTestCase {
     }
 
     @MainActor
+    func testCompletedReminderFieldsAreEditable() async { // spec: R6.5 / R4 (edit all fields)
+        let store = FakeReminderStore()
+        let (svc, _) = makeService(store)
+        store.seed(ReminderData(id: "c", title: "Old", isCompleted: true,
+                                completionDate: Date(), priority: .none))
+        await svc.refresh()
+
+        // Edit all reminder fields of a completed reminder (as Browse Completed does).
+        var edited = (await svc.browseCompleted()).first { $0.id == "c" }!.reminderData
+        edited.title = "New"
+        edited.priority = .high
+        edited.notes = "follow up"
+        await svc.save(edited)
+
+        let item = (await svc.browseCompleted()).first { $0.id == "c" }!
+        XCTAssertEqual(item.title, "New", "a completed reminder's fields are editable")
+        XCTAssertEqual(item.priority, .high)
+        XCTAssertEqual(item.notes, "follow up")
+        XCTAssertTrue(item.isCompleted, "editing fields leaves it completed")
+    }
+
+    @MainActor
+    func testDeleteCompletedRemovesReminderAndSidecar() async { // spec: R6.5 / R4.1 / R3.2
+        let store = FakeReminderStore()
+        let (svc, sidecar) = makeService(store)
+        store.seed(ReminderData(id: "c", title: "Done", isCompleted: true, completionDate: Date()))
+        sidecar.setMetadata(PerformanceMetadata(rating: 70), for: "c")
+        await svc.refresh()
+        let before = await svc.browseCompleted()
+        XCTAssertEqual(before.map(\.title), ["Done"])
+
+        // The Browse Completed swipe-left → Delete path.
+        await svc.delete(id: "c")
+        let after = await svc.browseCompleted()
+        XCTAssertTrue(after.isEmpty, "deleting removes it from Browse Completed")
+        XCTAssertEqual(sidecar.metadata(for: "c"), .empty, "and drops its sidecar data")
+    }
+
+    @MainActor
     func testBrowseCompletedSurfacesOutOfWindowCompletions() async { // spec: R6.5
         let store = FakeReminderStore()
         let (svc, _) = makeService(store)

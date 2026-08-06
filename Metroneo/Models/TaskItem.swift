@@ -38,6 +38,9 @@ public struct TaskItem: Identifiable, Equatable, Sendable {
     public var priority: ReminderPriority
     public var listId: String
     public var isRecurring: Bool
+    /// True for a recurring **occurrence snapshot** (R3.3): a historical, sidecar-only
+    /// record with no live reminder behind it, so its reminder fields can't be edited.
+    public var isOccurrence: Bool
     /// Early-reminder alarms as minutes-before (R4.2) — carried so the editor can
     /// round-trip them; not used by analytics.
     public var alarmOffsetMinutes: [Int]
@@ -63,6 +66,7 @@ public struct TaskItem: Identifiable, Equatable, Sendable {
         priority = r.priority
         listId = r.listId
         isRecurring = r.isRecurring
+        isOccurrence = false
         alarmOffsetMinutes = r.alarmOffsetMinutes
         rating = m.rating
         performanceNotes = m.performanceNotes
@@ -85,6 +89,7 @@ public struct TaskItem: Identifiable, Equatable, Sendable {
         priority = o.priority
         listId = o.listId
         isRecurring = true
+        isOccurrence = true
         alarmOffsetMinutes = []
         rating = o.metadata.rating
         performanceNotes = o.metadata.performanceNotes

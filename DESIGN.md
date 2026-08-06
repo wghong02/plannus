@@ -229,10 +229,15 @@ lists are the only grouping.
 - **R6.5 — Browse completed.** The Needs-rating inbox only surfaces completions
   *inside* the look-back window (R6.1a), so rating something finished earlier needs
   its own surface. Tasks offers a **Browse Completed** view: all completed reminders
-  (across the current list scope, newest first), each tappable to open the same
-  rating sheet — so "any completed reminder can be rated on demand" is actually
-  reachable, not just asserted. Already-rated completions show their level; unrated
-  ones invite a rating.
+  (across the current list scope, newest first). **Tapping** a row opens a **combined
+  detail** — the reminder's fields to **edit on top** (title, notes, due, priority,
+  list, alarms; R4) and the **rating below** (rating, estimated/actual, performance
+  notes; R6.2) — with one Save that writes both; editing stays valid on a completed
+  reminder and keeps it completed. **Swiping a row left** reveals two actions —
+  **Edit** (left) and **Delete** (right, which removes the reminder and its sidecar,
+  R3.2); **swiping right does nothing**. Already-rated completions show their level;
+  unrated ones invite a rating. Recurring **occurrence snapshots** (R3.3) have no live
+  reminder, so tapping them opens the rating sheet only and they have no swipe actions.
 
 ### R7 — Priority (Apple's buckets) · depends: R2
 - **R7.1** — priority is Apple's four buckets — **None / Low / Medium / High** — the
@@ -422,6 +427,8 @@ Metroneo/
   | | createReminderAppearsInDefaultList | R4.1 create → write-back → default list |
   | | tapRowOpensPrefilledEditor | R4.2 tap-to-edit, pre-filled |
   | | completeCircleMovesReminderToNeedsRating | R4.3/R6 complete circle → write-back → inbox |
+  | | browseCompletedTapShowsEditAndRate | R6.5 tap → combined edit-on-top / rate-below → persists |
+  | | browseCompletedSwipeLeftEditsAndDeletes | R6.5 swipe-left → Edit + Delete; delete removes row |
   | `CompanionPerformanceUITests` | performanceTabRendersEmptyState | R2 charts wiring / empty state |
   | | ratingFeedsPerformance | R2.3 rate → appears in Recent (sidecar → analytics) |
   | | ratingWithDurationsShowsEstimatedVsActual | D14/D17 rate w/ both durations → bars appear |

@@ -5,12 +5,19 @@ import SwiftUI
 /// through `TaskService`, and the estimated duration to the local sidecar. Recurrence
 /// is read-only (R-recurrence): a repeating reminder shows a note but is edited in
 /// Apple Reminders.
+///
+/// With `includeRating` (used by Browse Completed, R6.5) the editor also shows a
+/// **rating section below** the reminder fields — so a completed reminder's fields
+/// (edit) and its performance (rate) are captured together in one screen — and Save
+/// writes both the reminder (R4) and the rating/durations (R6.2).
 struct CompanionReminderEditor: View {
     @EnvironmentObject private var taskService: TaskService
     @Environment(\.dismiss) private var dismiss
 
     /// The item being edited, or `nil` for a new reminder.
     private let existing: TaskItem?
+    /// Whether to show the rating section below (only meaningful for an existing item).
+    private let includeRating: Bool
 
     @State private var title: String
     @State private var notes: String
@@ -27,8 +34,17 @@ struct CompanionReminderEditor: View {
 
     @State private var estimatedText: String
 
-    init(item: TaskItem? = nil) {
+    // Rating fields (shown only when `includeRating` and editing an existing item).
+    @State private var rating: Int
+    @State private var actualText: String
+    @State private var perfNotes: String
+
+    /// True when the rating section should show (edit-on-top, rate-below).
+    private var showRating: Bool { includeRating && existing != nil }
+
+    init(item: TaskItem? = nil, includeRating: Bool = false) {
         self.existing = item
+        self.includeRating = includeRating
         _title = State(initialValue: item?.title ?? "")
         _notes = State(initialValue: item?.notes ?? "")
         _priority = State(initialValue: item?.priority ?? .none)
@@ -41,6 +57,9 @@ struct CompanionReminderEditor: View {
         _alarmMinutes = State(initialValue: firstAlarm ?? 15)
         _customLead = State(initialValue: firstAlarm.map { !ReminderLead.isPreset($0) } ?? false)
         _estimatedText = State(initialValue: item?.estimatedDuration.map(String.init) ?? "")
+        _rating = State(initialValue: item?.rating ?? 50)
+        _actualText = State(initialValue: item?.actualDuration.map(String.init) ?? "")
+        _perfNotes = State(initialValue: item?.performanceNotes ?? "")
     }
 
     var body: some View {
@@ -73,6 +92,20 @@ struct CompanionReminderEditor: View {
                 Section("Estimated duration (minutes)") {
                     TextField("Estimated", text: $estimatedText).keyboardType(.numberPad)
                         .accessibilityIdentifier("estimatedField")
+                }
+
+                if showRating {
+                    Section("Performance") {
+                        SliderField(title: "Rating", value: $rating)
+                    }
+                    Section("Actual duration (minutes)") {
+                        TextField("Actual", text: $actualText).keyboardType(.numberPad)
+                            .accessibilityIdentifier("ratingActualField")
+                    }
+                    Section("Performance notes") {
+                        TextField("Notes", text: $perfNotes, axis: .vertical)
+                            .accessibilityIdentifier("performanceNotesField")
+                    }
                 }
 
                 if existing?.isRecurring == true {
@@ -156,7 +189,15 @@ struct CompanionReminderEditor: View {
         Task {
             let saved = await taskService.save(reminder)
             if let id = saved?.id, !id.isEmpty {
-                await taskService.setEstimatedDuration(id: id, minutes: estimated)
+                if showRating {
+                    // Combined edit-on-top / rate-below: one write for estimate + rating.
+                    await taskService.recordRating(
+                        id: id, rating: rating, notes: perfNotes.isEmpty ? nil : perfNotes,
+                        estimatedMinutes: estimated, actualMinutes: Int(actualText)
+                    )
+                } else {
+                    await taskService.setEstimatedDuration(id: id, minutes: estimated)
+                }
             }
             dismiss()
         }
