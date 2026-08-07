@@ -52,4 +52,52 @@ final class WidgetSnapshotTests: XCTestCase {
         WidgetSnapshotStore.write(snap, to: defaults)
         XCTAssertEqual(WidgetSnapshotStore.read(from: defaults).tasks.map(\.title), ["A"], "read matches write")
     }
+
+    // MARK: - Widget interaction logic (what the AppIntents run)
+
+    func testPerformanceToggleFlipsSharedMode() { // TogglePerformanceModeIntent
+        let d = UserDefaults(suiteName: "widget-test-\(UUID().uuidString)")!
+        XCTAssertFalse(WidgetSnapshotStore.showRatedMode(from: d), "starts on the chart view")
+        XCTAssertTrue(WidgetSnapshotStore.toggleRatedMode(in: d), "toggle → rated list")
+        XCTAssertTrue(WidgetSnapshotStore.showRatedMode(from: d))
+        XCTAssertFalse(WidgetSnapshotStore.toggleRatedMode(in: d), "toggle → back to chart")
+    }
+
+    func testCompleteCircleRemovesTaskFromSnapshot() { // CompleteReminderIntent optimistic update
+        let d = UserDefaults(suiteName: "widget-test-\(UUID().uuidString)")!
+        let snap = WidgetSnapshot(
+            tasks: [WidgetTask(id: "a", title: "A", subtitle: nil), WidgetTask(id: "b", title: "B", subtitle: nil)],
+            needsRating: [], weekly: [], weeklyRatedTotal: 0, weeklyAverage: 0, recentRated: [], generatedAt: Date())
+        WidgetSnapshotStore.write(snap, to: d)
+        WidgetSnapshotStore.removeTask(id: "a", in: d)
+        XCTAssertEqual(WidgetSnapshotStore.read(from: d).tasks.map(\.id), ["b"],
+                       "tapping the complete circle drops the row from the widget snapshot")
+    }
+
+    // MARK: - Full pipeline: TaskService refresh → App-Group store → widget read path
+
+    private final class SuitePublisher: WidgetSnapshotPublishing {
+        let defaults: UserDefaults
+        init(_ defaults: UserDefaults) { self.defaults = defaults }
+        func publish(_ snapshot: WidgetSnapshot) { WidgetSnapshotStore.write(snapshot, to: defaults) }
+    }
+
+    @MainActor
+    func testRefreshPipelineReachesWidgetReadPath() async {
+        let group = UserDefaults(suiteName: "widget-test-\(UUID().uuidString)")! // stands in for the App Group
+        let store = FakeReminderStore()
+        let sidecar = try! PerformanceSidecarStore(inMemory: true)
+        let svc = TaskService(store: store, sidecar: sidecar,
+                              defaults: UserDefaults(suiteName: "test-\(UUID().uuidString)")!,
+                              widgetPublisher: SuitePublisher(group))
+        store.save(ReminderData(title: "Open"))
+        store.seed(ReminderData(id: "d", title: "DoneUnrated", isCompleted: true, completionDate: Date()))
+
+        await svc.refresh()
+
+        // Exactly what SnapshotProvider reads for its timeline entry:
+        let snapshot = WidgetSnapshotStore.read(from: group)
+        XCTAssertEqual(snapshot.tasks.map(\.title), ["Open"], "the widget's read path sees the published tasks")
+        XCTAssertEqual(snapshot.needsRating.map(\.title), ["DoneUnrated"])
+    }
 }

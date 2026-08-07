@@ -64,12 +64,17 @@ public struct WidgetSnapshot: Codable, Hashable {
     )
 }
 
-/// Reads/writes the snapshot in the shared App Group. `defaults` is injectable for
-/// tests (a throwaway suite instead of the real group).
+/// Reads/writes the snapshot in the shared App Group and holds the small pieces of
+/// widget state (the Performance toggle, the complete-circle's optimistic update).
+/// `defaults` is injectable for tests (a throwaway suite instead of the real group),
+/// so this whole layer — the part that decides what the widgets show — is
+/// integration-testable without WidgetKit.
 public enum WidgetSnapshotStore {
     /// Must match the App Group capability added to both targets in Xcode.
     public static let appGroup = "group.com.gladiolus.Metroneo"
     public static let key = "widget.snapshot.v1"
+    /// Performance widget toggle: chart (false) vs. rated list (true).
+    public static let modeKey = "widget.performance.showRated"
 
     public static func sharedDefaults() -> UserDefaults? { UserDefaults(suiteName: appGroup) }
 
@@ -82,6 +87,27 @@ public enum WidgetSnapshotStore {
         guard let defaults, let data = defaults.data(forKey: key),
               let snapshot = try? JSONDecoder().decode(WidgetSnapshot.self, from: data) else { return .empty }
         return snapshot
+    }
+
+    /// The Performance widget's toggle state (`TogglePerformanceModeIntent`).
+    public static func showRatedMode(from defaults: UserDefaults? = sharedDefaults()) -> Bool {
+        defaults?.bool(forKey: modeKey) ?? false
+    }
+
+    /// Flips the Performance widget toggle; returns the new value.
+    @discardableResult
+    public static func toggleRatedMode(in defaults: UserDefaults? = sharedDefaults()) -> Bool {
+        let next = !showRatedMode(from: defaults)
+        defaults?.set(next, forKey: modeKey)
+        return next
+    }
+
+    /// Optimistically drops a task from the stored snapshot — what the Tasks widget's
+    /// complete circle does so the row disappears before the app republishes.
+    public static func removeTask(id: String, in defaults: UserDefaults? = sharedDefaults()) {
+        var snapshot = read(from: defaults)
+        snapshot.tasks.removeAll { $0.id == id }
+        write(snapshot, to: defaults)
     }
 }
 

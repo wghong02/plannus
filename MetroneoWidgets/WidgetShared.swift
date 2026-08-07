@@ -29,8 +29,8 @@ struct SnapshotProvider: TimelineProvider {
         completion(Timeline(entries: [current()], policy: .after(Date().addingTimeInterval(30 * 60))))
     }
     private func current() -> WidgetEntry {
-        let showRated = WidgetSnapshotStore.sharedDefaults()?.bool(forKey: PerformanceWidgetMode.key) ?? false
-        return WidgetEntry(date: Date(), snapshot: WidgetSnapshotStore.read(), showRated: showRated)
+        WidgetEntry(date: Date(), snapshot: WidgetSnapshotStore.read(),
+                    showRated: WidgetSnapshotStore.showRatedMode())
     }
 }
 
@@ -55,22 +55,16 @@ struct CompleteReminderIntent: AppIntent {
         }
         // Optimistically drop it so the widget reflects the completion immediately;
         // the app republishes an authoritative snapshot on its next refresh.
-        var snapshot = WidgetSnapshotStore.read()
-        snapshot.tasks.removeAll { $0.id == reminderId }
-        WidgetSnapshotStore.write(snapshot)
+        WidgetSnapshotStore.removeTask(id: reminderId)
         return .result()
     }
 }
-
-enum PerformanceWidgetMode { static let key = "widget.performance.showRated" }
 
 /// Flips the medium Performance widget between the weekly chart and the rated list.
 struct TogglePerformanceModeIntent: AppIntent {
     static var title: LocalizedStringResource = "Toggle Performance View"
     func perform() async throws -> some IntentResult {
-        let defaults = WidgetSnapshotStore.sharedDefaults()
-        let current = defaults?.bool(forKey: PerformanceWidgetMode.key) ?? false
-        defaults?.set(!current, forKey: PerformanceWidgetMode.key)
+        WidgetSnapshotStore.toggleRatedMode()
         return .result()
     }
 }
