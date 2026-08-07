@@ -50,7 +50,7 @@ struct CompanionReminderEditor: View {
         _priority = State(initialValue: item?.priority ?? .none)
         _listId = State(initialValue: item?.listId ?? "")
         _hasDue = State(initialValue: item?.dueDate != nil)
-        _dueDate = State(initialValue: item?.dueDate ?? DateTimeUtilities.endOfDay(Date()))
+        _dueDate = State(initialValue: item?.dueDate ?? DateTimeUtilities.time(hour: 9, minute: 0))
         _hasDueTime = State(initialValue: item?.hasDueTime ?? false)
         let firstAlarm = item?.alarmOffsetMinutes.first
         _hasAlarm = State(initialValue: firstAlarm != nil)
@@ -139,12 +139,23 @@ struct CompanionReminderEditor: View {
     }
 
     private var dueSection: some View {
-        Section("Due") {
-            Toggle("Due date", isOn: $hasDue).accessibilityIdentifier("dueToggle")
+        // Light-touch date/time: a "Date" toggle reveals a calendar, and only then a
+        // "Time" toggle reveals a time picker — nothing shows until you opt in.
+        Section {
+            Toggle(isOn: $hasDue.animation()) { Label("Date", systemImage: "calendar") }
+                .accessibilityIdentifier("dueToggle")
             if hasDue {
-                DatePicker("Due", selection: $dueDate,
-                           displayedComponents: hasDueTime ? [.date, .hourAndMinute] : [.date])
-                Toggle("Set due time", isOn: $hasDueTime).accessibilityIdentifier("dueTimeToggle")
+                DatePicker("Date", selection: $dueDate, displayedComponents: .date)
+                    .datePickerStyle(.graphical)
+                    .labelsHidden()
+                    .accessibilityIdentifier("datePicker")
+
+                Toggle(isOn: $hasDueTime.animation()) { Label("Time", systemImage: "clock") }
+                    .accessibilityIdentifier("dueTimeToggle")
+                if hasDueTime {
+                    DatePicker("Time", selection: $dueDate, displayedComponents: .hourAndMinute)
+                        .accessibilityIdentifier("timePicker")
+                }
             }
         }
     }

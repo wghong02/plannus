@@ -118,6 +118,33 @@ final class CompanionTasksUITests: UITestCase {
     }
 
     @MainActor
+    func testEditorDateAndTimeAreOptIn() throws { // spec: R4.2 (light-touch date/time)
+        let app = launchCompanion()
+        XCTAssertTrue(app.staticTexts["Work"].waitForExistence(timeout: 10))
+        app.buttons["addReminderButton"].tap()
+        XCTAssertTrue(app.textFields["reminderTitleField"].waitForExistence(timeout: 5))
+
+        func revealed(_ id: String) -> XCUIElement { app.descendants(matching: .any).matching(identifier: id).firstMatch }
+        func turnOn(_ toggle: XCUIElement) {
+            toggle.tap()
+            if (toggle.value as? String) == "0" { toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.5)).tap() }
+        }
+
+        // Nothing date-related until you opt in.
+        XCTAssertFalse(revealed("datePicker").exists, "no calendar until Date is enabled")
+        turnOn(app.switches["dueToggle"])
+        XCTAssertTrue(revealed("datePicker").waitForExistence(timeout: 5), "enabling Date reveals the calendar")
+
+        // Time is a separate opt-in below the (tall) calendar — scroll to it.
+        app.swipeUp()
+        let timeToggle = app.switches["dueTimeToggle"]
+        XCTAssertTrue(timeToggle.waitForExistence(timeout: 5), "the Time toggle sits below the calendar")
+        XCTAssertFalse(revealed("timePicker").exists, "no time picker until Time is enabled")
+        turnOn(timeToggle)
+        XCTAssertTrue(revealed("timePicker").waitForExistence(timeout: 5), "enabling Time reveals the time picker")
+    }
+
+    @MainActor
     func testCompletedFilterByList() throws { // spec: R6.5 (pick by list)
         let app = launchCompanion()
         XCTAssertTrue(app.staticTexts["Work"].waitForExistence(timeout: 10))

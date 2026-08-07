@@ -188,7 +188,10 @@ lists are the only grouping.
   time), priority (R7), **list** (move via `EKReminder.calendar`), and **alarms**
   (the early-reminder offset). Rating / notes / durations write to the **sidecar**
   only. A **new** reminder goes into the user's **default Reminders list**
-  (`defaultCalendarForNewReminders`) unless a list is chosen.
+  (`defaultCalendarForNewReminders`) unless a list is chosen. Date/time are
+  **light-touch, opt-in**: a **Date** toggle reveals an inline calendar, and only
+  then a separate **Time** toggle reveals a time picker (date-only until Time is on) —
+  nothing date-related is shown until the user asks for it.
 - **R4.3** — completing in-app sets `isCompleted` / `completionDate` (Apple advances
   a recurring one); the completed reminder then surfaces for rating (R6). Deleting a
   reminder also prunes its sidecar (R3.2).
@@ -483,6 +486,7 @@ MetroneoWidgets/  (MetroneoWidgetsExtension target)
   | | rateFromNeedsRatingInbox | R6.2 rating sheet → sidecar |
   | | createReminderAppearsInDefaultList | R4.1 create → write-back → default list |
   | | tapRowOpensPrefilledEditor | R4.2 tap-to-edit, pre-filled |
+  | | editorDateAndTimeAreOptIn | R4.2 Date toggle → calendar, Time toggle → time picker |
   | | completeCircleMovesReminderToNeedsRating | R4.3/R6 complete circle → write-back → inbox |
   | | browseCompletedTapShowsEditAndRate | R6.5 tap → combined edit-on-top / rate-below → persists |
   | | browseCompletedSwipeLeftEditsAndDeletes | R6.5 swipe-left → Edit + Delete; delete removes row |
