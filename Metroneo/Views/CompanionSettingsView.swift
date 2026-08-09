@@ -12,6 +12,7 @@ struct CompanionSettingsView: View {
     private let defaults: UserDefaults
     @State private var windowDays = 14
     @State private var replayed = false
+    @State private var showClearAllConfirm = false
 
     init(defaults: UserDefaults = .standard) { self.defaults = defaults }
 
@@ -59,6 +60,32 @@ struct CompanionSettingsView: View {
             Section("Personal Preferences") {
                 NavigationLink("Performance") { PerformanceCustomizationScreen() }
                     .accessibilityIdentifier("performanceSettingsLink")
+            }
+
+            Section {
+                Button("Clear ratings older than 30 days") {
+                    Task { await taskService.clearPerformance(olderThanDays: 30) }
+                }
+                .accessibilityIdentifier("clearPerf30")
+                Button("Clear ratings older than 1 year") {
+                    Task { await taskService.clearPerformance(olderThanDays: 365) }
+                }
+                .accessibilityIdentifier("clearPerf365")
+                Button("Clear all performance data", role: .destructive) { showClearAllConfirm = true }
+                    .accessibilityIdentifier("clearPerfAll")
+            } header: {
+                Text("Performance data")
+            } footer: {
+                Text("Removes the ratings, notes, and durations Metroneo stores. Your reminders in Apple Reminders are not affected."
+                     + (taskService.iCloudSyncing ? " Changes sync across your devices via iCloud." : ""))
+            }
+            .confirmationDialog("Clear all performance data?", isPresented: $showClearAllConfirm, titleVisibility: .visible) {
+                Button("Clear All", role: .destructive) {
+                    Task { await taskService.clearPerformance(olderThanDays: nil) }
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("This permanently deletes every rating, note, and duration. This can't be undone.")
             }
 
             Section("Help") {

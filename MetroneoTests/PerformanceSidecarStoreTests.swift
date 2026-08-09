@@ -78,6 +78,55 @@ final class PerformanceSidecarStoreTests: XCTestCase {
         XCTAssertEqual(s.occurrences().count, 1)
     }
 
+    func testClearAndClearAll() { // spec: Sync / Settings (clear performance data)
+        let s = make()
+        s.setMetadata(PerformanceMetadata(rating: 1), for: "a")
+        s.setMetadata(PerformanceMetadata(rating: 2), for: "b")
+        let occ = s.recordOccurrence(seriesId: "series", title: "T", listId: "l", priority: .none,
+                                     occurrenceDate: Date(timeIntervalSince1970: 100),
+                                     completionDate: Date(timeIntervalSince1970: 100))
+        s.setMetadata(PerformanceMetadata(rating: 3), for: occ)
+
+        s.clear(id: "a")
+        XCTAssertEqual(s.metadata(for: "a"), .empty, "clear removes a normal row")
+        s.clear(id: occ)
+        XCTAssertTrue(s.occurrences().isEmpty, "clear removes an occurrence row outright")
+
+        s.clearAll()
+        XCTAssertTrue(s.storedIds().isEmpty, "clearAll removes everything")
+    }
+
+    func testInMemoryStoreIsNeverCloudBacked() { // spec: Sync (local-only under tests)
+        XCTAssertFalse(make().isCloudBacked, "in-memory sidecar never mirrors to iCloud")
+    }
+
+    func testCloudFailureFallsBackToLocal() { // spec: Sync (graceful fallback)
+        struct CloudUnavailable: Error {}
+        let url = FileManager.default.temporaryDirectory.appending(path: "sidecar-\(UUID().uuidString).store")
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        // iCloud "available" and a container id given, but building the CloudKit-backed
+        // container throws — the store must fall back to a working local store, not crash.
+        let s = try! PerformanceSidecarStore(cloudKitContainerID: "iCloud.test",
+                                             iCloudAvailable: true, storeURL: url,
+                                             makeCloudContainer: { _, _ in throw CloudUnavailable() })
+        XCTAssertFalse(s.isCloudBacked, "cloud failure falls back to local")
+        s.setMetadata(PerformanceMetadata(rating: 55), for: "x")
+        XCTAssertEqual(s.metadata(for: "x").rating, 55, "local store still reads/writes after fallback")
+    }
+
+    func testLocalWhenICloudUnavailable() { // spec: Sync (no account ⇒ local, no cloud attempt)
+        let url = FileManager.default.temporaryDirectory.appending(path: "sidecar-\(UUID().uuidString).store")
+        defer { try? FileManager.default.removeItem(at: url) }
+        // A container id is offered but iCloud is unavailable — never attempt CloudKit.
+        var attempted = false
+        let s = try! PerformanceSidecarStore(cloudKitContainerID: "iCloud.test",
+                                             iCloudAvailable: false, storeURL: url,
+                                             makeCloudContainer: { _, _ in attempted = true; fatalError("must not run") })
+        XCTAssertFalse(attempted, "no CloudKit attempt when iCloud is unavailable")
+        XCTAssertFalse(s.isCloudBacked)
+    }
+
     func testRecordOccurrenceIsIdempotent() { // spec: R3.3
         let s = make()
         let occDate = Date(timeIntervalSince1970: 2_000_000)

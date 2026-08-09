@@ -55,6 +55,14 @@ struct CompanionTasksView: View {
                     Label("Completed", systemImage: "clock.arrow.circlepath")
                 }
                 .accessibilityIdentifier("browseCompletedLink")
+            } footer: {
+                // Subtle hint when iCloud sync isn't active (DESIGN — Sync).
+                if taskService.syncConfigured && !taskService.iCloudSyncing {
+                    Label("iCloud sync off — your ratings stay on this device.",
+                          systemImage: "icloud.slash")
+                        .font(.caption2).foregroundStyle(.secondary)
+                        .accessibilityIdentifier("syncOffHint")
+                }
             }
         }
         // A little breathing room between the large title and the first row, and
@@ -73,8 +81,8 @@ struct CompanionTasksView: View {
                     .accessibilityIdentifier("addReminderButton")
             }
         }
-        .task { await taskService.refresh() }
-        .refreshable { await taskService.refresh() }
+        .task { await taskService.syncNow() }
+        .refreshable { await taskService.syncNow() }
         .sheet(item: $ratingItem) { RatingSheet(item: $0) }
         .sheet(item: $editingItem) { CompanionReminderEditor(item: $0) }
         .sheet(isPresented: $showNewReminder) { CompanionReminderEditor() }

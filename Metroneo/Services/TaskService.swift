@@ -21,6 +21,14 @@ public final class TaskService: ObservableObject {
     private let widgetPublisher: WidgetSnapshotPublishing?
     private var cancellables = Set<AnyCancellable>()
 
+    /// Whether the performance sidecar is actually mirroring to the user's private
+    /// iCloud (DESIGN — Sync). Derived from the sidecar's store type, which is resolved
+    /// safely at launch. `false` ⇒ local-only; the Tasks tab shows a subtle hint.
+    @Published public private(set) var iCloudSyncing = false
+    /// Whether iCloud sync is wired up in this build (the real app, not tests/fakes) —
+    /// so the "sync off" hint only shows where sync is a real option.
+    public let syncConfigured: Bool
+
     private enum Keys {
         static let window = "companion.needsRatingWindowDays"
         static let scope = "companion.listScope"
@@ -37,11 +45,14 @@ public final class TaskService: ObservableObject {
 
     public init(store: ReminderStore, sidecar: PerformanceSidecarStore,
                 listScope: [String]? = nil, defaults: UserDefaults = .standard,
-                widgetPublisher: WidgetSnapshotPublishing? = nil) {
+                widgetPublisher: WidgetSnapshotPublishing? = nil,
+                syncConfigured: Bool = false) {
         self.store = store
         self.sidecar = sidecar
         self.defaults = defaults
         self.widgetPublisher = widgetPublisher
+        self.syncConfigured = syncConfigured
+        self.iCloudSyncing = sidecar.isCloudBacked
         self.listScope = listScope
         // Load persisted companion settings (R5.3 / R6.1a).
         if let days = defaults.object(forKey: Keys.window) as? Double, days > 0 {
@@ -184,6 +195,34 @@ public final class TaskService: ObservableObject {
         let normal = completed.filter { included($0.listId) }.map(join)
         let occ = sidecar.occurrences().filter { included($0.listId) }.map(TaskItem.init(occurrence:))
         return (normal + occ).sorted { ($0.completionDate ?? .distantPast) > ($1.completionDate ?? .distantPast) }
+    }
+
+    // MARK: - iCloud sync (DESIGN — Sync)
+
+    /// Refreshes the read model **and** the iCloud sync indicator. The sidecar mirrors
+    /// to the user's private CloudKit database automatically (SwiftData); this is the
+    /// app-start / pull-to-refresh entry point that re-reads whatever has synced in and
+    /// updates the "sync off" hint.
+    @MainActor
+    public func syncNow() async {
+        iCloudSyncing = sidecar.isCloudBacked
+        await refresh()
+    }
+
+    /// Clears the performance sidecar (ratings, notes, durations) — all of it, or only
+    /// records older than a cutoff (e.g. 30 days, a year). Deletions propagate to
+    /// iCloud via the mirrored store. `days == nil` ⇒ clear everything.
+    @MainActor
+    public func clearPerformance(olderThanDays days: Int?, now: Date = Date()) async {
+        if let days {
+            let cutoff = now.addingTimeInterval(-Double(days) * 86_400)
+            for item in ratedItems where (item.placementDate ?? .distantPast) < cutoff {
+                sidecar.clear(id: item.id)
+            }
+        } else {
+            sidecar.clearAll()
+        }
+        await refresh()
     }
 
     // MARK: - Reminder writes (R4 — forward to Apple Reminders, then refresh)

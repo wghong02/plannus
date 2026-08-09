@@ -34,14 +34,14 @@ thing Apple doesn't: **how well you did.**
   Metroneo attaches a **rating**, **performance notes**, and an **estimated /
   actual time** to each reminder, stored locally and joined by the reminder's
   stable id.
-- **The tasks follow you; the performance data is per-device.** Apple Reminders is
-  the source of truth for tasks, so completing a reminder in Siri shows up in
-  Metroneo and vice-versa — no task sync, notification scheduling, or recurrence
-  engine of Metroneo's own. But the **performance sidecar is a local store** (R3.1):
-  the ratings, notes, and durations you record live only on the device that
-  recorded them and do **not** currently follow you across devices, even though the
-  reminders they attach to do. Cross-device sidecar sync (CloudKit) is a known
-  future extension, not a current guarantee.
+- **Everything follows you.** Apple Reminders is the source of truth for tasks, so
+  completing a reminder in Siri shows up in Metroneo and vice-versa — no task sync,
+  notification scheduling, or recurrence engine of Metroneo's own. The **performance
+  sidecar** (ratings, notes, durations) syncs too: it's a local SwiftData store
+  **mirrored to the user's private iCloud database** (CloudKit) so it's available on all
+  their devices. It stays local‑only whenever the user isn't signed into iCloud;
+  Metroneo has no servers of its own and never sees the private database (see **Sync**,
+  below).
 - **Rate after the fact.** Since a reminder can be finished anywhere, Metroneo
   surfaces a **Needs rating** inbox of recently-completed, still-unrated reminders
   — rate them and log the actual time when you get to it. The analytics span
@@ -350,8 +350,9 @@ population and its settings live in local preferences.
   (D17), stat cards, insights, and a recent-rated list, over the rated population
   with the priority-weighted average (R7.3).
 - **Settings** — priority weights (R7.3), the Needs-rating window (R6.1a), per-list
-  scope (R5.3), the performance customization screen (D8/D10/D12), tutorial replay
-  (D13), and About.
+  scope (R5.3), the performance customization screen (D8/D10/D12), **clear performance
+  data** (all, or older than 30 days / a year — see Sync), tutorial replay (D13), and
+  About.
 - **Consistent visual system.** All tabs share one palette so they read as one app:
   a grouped **`systemGroupedBackground`** page with white
   **`secondarySystemGroupedBackground`** rows/cards. The `List`-based tabs (Tasks /
@@ -396,6 +397,45 @@ publishes a snapshot on refresh).
 `UserDefaults` domains and the widgets render empty. (The shared-file membership, the
 widget's `NSRemindersFullAccessUsageDescription`, and the four widgets themselves are
 already wired.)
+
+---
+
+## Sync (iCloud / CloudKit)
+
+The performance sidecar syncs across the user's devices via **SwiftData's CloudKit
+mirroring** into the user's **private** CloudKit database — Apple hosts and syncs it,
+Metroneo has no servers and can't read it, and it isn't counted as developer data
+collection. Reminders themselves already sync via Apple Reminders/iCloud.
+
+- **Model constraints.** CloudKit mirroring forbids `@Attribute(.unique)` and requires
+  every stored property to be optional or defaulted, so `StoredPerformance.reminderId`
+  is a defaulted, non-unique `String`; uniqueness per id is enforced in code.
+- **Automatic, with graceful fallback.** When the user is signed into iCloud, the
+  sidecar opens the CloudKit‑mirrored store; if building that container throws for any
+  reason (iCloud unavailable, transient error), `PerformanceSidecarStore` **falls back
+  to a plain local store** so start‑up never fails. `PerformanceSidecarStore.init`
+  exposes `iCloudAvailable` / `makeCloudContainer` seams purely so this fallback is
+  covered by an integration test.
+  - *Note:* the CloudKit **entitlement must be on the app target** (`Metroneo.entitlements`
+    → `com.apple.developer.icloud-services = [CloudKit]`), since the sidecar runs in the
+    app process. Without it, Core Data's mirroring delegate aborts the process
+    (`_os_crash`) on a background queue — an uncatchable crash that no `try?`/fallback
+    can intercept. This is a build‑configuration invariant, not something guarded at
+    runtime.
+- **Triggers.** Mirroring is automatic/background; the Tasks tab's `.task` (app start)
+  and pull‑to‑refresh call `TaskService.syncNow()`, which re‑reads the store (surfacing
+  synced changes) and refreshes the sync indicator.
+- **"Sync off" hint.** `TaskService.iCloudSyncing` is derived from
+  `PerformanceSidecarStore.isCloudBacked` (resolved at launch — no live CloudKit account
+  probe) and drives a subtle Tasks‑tab hint when sync isn't active; `syncConfigured`
+  keeps it out of tests.
+- **Clear performance data (Settings).** `clearPerformance(olderThanDays:)` clears
+  ratings older than a cutoff (30 days, a year) or all of them; deletions propagate to
+  iCloud via the mirrored store. Reminders in Apple Reminders are untouched.
+
+Setup is one‑time in Xcode: add the **iCloud → CloudKit** capability with container
+`iCloud.com.gladiolus.Metroneo` **to the app target** (not the widget). Export‑compliance
+is declared (`ITSAppUsesNonExemptEncryption = NO`).
 
 ---
 

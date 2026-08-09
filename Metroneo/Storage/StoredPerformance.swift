@@ -14,7 +14,11 @@ import SwiftData
 ///   orphan reconciliation** (R3.2).
 @Model
 final class StoredPerformance {
-    @Attribute(.unique) var reminderId: String
+    // No `@Attribute(.unique)` and a default value: SwiftData's CloudKit mirroring
+    // (DESIGN — Sync) forbids unique constraints and requires every stored property
+    // to be optional or defaulted. Uniqueness per id is enforced in code (see
+    // `existingOrNew` / `recordOccurrence`).
+    var reminderId: String = ""
     var rating: Int?
     var performanceNotes: String?
     var estimatedDuration: Int?

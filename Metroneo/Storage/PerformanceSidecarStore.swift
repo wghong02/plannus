@@ -22,20 +22,58 @@ public final class PerformanceSidecarStore {
     private let container: ModelContainer
     private let context: ModelContext
 
+    /// True when the store is mirrored to the user's private CloudKit database
+    /// (DESIGN — Sync); false when running local-only (no capability / not signed in).
+    public let isCloudBacked: Bool
+
     /// Ids seen absent from the live set on the *previous* successful sync — pruned
     /// only if still absent this sync (the R3.2 two-sync grace).
     private var pendingOrphans: Set<String> = []
 
-    /// - Parameter inMemory: true for previews/tests (isolated, no disk).
-    public init(inMemory: Bool = false) throws {
-        let config: ModelConfiguration
+    /// - Parameters:
+    ///   - inMemory: true for previews/tests (isolated, no disk).
+    ///   - cloudKitContainerID: the private CloudKit container to mirror into (DESIGN —
+    ///     Sync). Ignored in memory or when iCloud isn't available.
+    ///   - iCloudAvailable: whether the user is signed into iCloud (injectable for tests).
+    ///   - storeURL: override the on-disk store location (injectable for tests).
+    ///   - makeCloudContainer: builds the CloudKit-backed container (injectable so tests
+    ///     can force a failure and assert the local fallback).
+    ///
+    /// **Graceful fallback:** if the CloudKit-backed container can't be built (iCloud
+    /// unavailable, transient error, misconfiguration), it falls back to a plain local
+    /// store so the app keeps working rather than failing to launch.
+    public init(inMemory: Bool = false,
+                cloudKitContainerID: String? = nil,
+                iCloudAvailable: Bool = FileManager.default.ubiquityIdentityToken != nil,
+                storeURL: URL? = nil,
+                makeCloudContainer: ((String, URL) throws -> ModelContainer)? = nil) throws {
         if inMemory {
-            config = ModelConfiguration(isStoredInMemoryOnly: true)
-        } else {
-            let url = URL.applicationSupportDirectory.appending(path: "MetroneoSidecar.store")
-            config = ModelConfiguration(url: url)
+            container = try ModelContainer(for: StoredPerformance.self,
+                                           configurations: ModelConfiguration(isStoredInMemoryOnly: true))
+            isCloudBacked = false
+            context = ModelContext(container)
+            return
         }
-        container = try ModelContainer(for: StoredPerformance.self, configurations: config)
+
+        let url = storeURL ?? URL.applicationSupportDirectory.appending(path: "MetroneoSidecar.store")
+        // Mirror to the user's private CloudKit database when iCloud is available; if
+        // building that container throws for any reason, fall back to a local store so
+        // connecting to the cloud can never crash the app.
+        if let cloudKitContainerID, iCloudAvailable {
+            let makeCloud = makeCloudContainer ?? { id, storeURL in
+                try ModelContainer(for: StoredPerformance.self,
+                                   configurations: ModelConfiguration(url: storeURL, cloudKitDatabase: .private(id)))
+            }
+            if let cloud = try? makeCloud(cloudKitContainerID, url) {
+                container = cloud
+                isCloudBacked = true
+                context = ModelContext(container)
+                return
+            }
+        }
+
+        container = try ModelContainer(for: StoredPerformance.self, configurations: ModelConfiguration(url: url))
+        isCloudBacked = false
         context = ModelContext(container)
     }
 
@@ -148,6 +186,20 @@ public final class PerformanceSidecarStore {
         }
         pendingOrphans = stillPending
         if changed { try? context.save() }
+    }
+
+    /// Deletes one row (normal or occurrence) outright — used by the "clear
+    /// performance data" controls (DESIGN — Sync / Settings).
+    public func clear(id: String) {
+        if let row = row(id) { context.delete(row); try? context.save() }
+    }
+
+    /// Deletes every sidecar row.
+    public func clearAll() {
+        let all = rows()
+        guard !all.isEmpty else { return }
+        for row in all { context.delete(row) }
+        try? context.save()
     }
 
     /// All stored ids (diagnostics/tests).

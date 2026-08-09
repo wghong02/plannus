@@ -122,6 +122,43 @@ final class TaskServiceTests: XCTestCase {
         XCTAssertFalse(svc.ratedItems.contains { $0.id == "p1" }, "but it's hidden from the scoped view")
     }
 
+    @MainActor
+    func testSyncStatusReflectsStoreBacking() async { // spec: Sync (iCloud on/off hint)
+        let store = FakeReminderStore()
+        // In-memory sidecar is never cloud-backed → the hint reflects "sync off".
+        let sidecar = try! PerformanceSidecarStore(inMemory: true)
+        let configured = TaskService(store: store, sidecar: sidecar,
+                                     defaults: UserDefaults(suiteName: "test-\(UUID().uuidString)")!,
+                                     syncConfigured: true)
+        await configured.syncNow()
+        XCTAssertTrue(configured.syncConfigured, "hint is wired up in the real app")
+        XCTAssertFalse(configured.iCloudSyncing, "local store ⇒ not syncing")
+
+        let notConfigured = TaskService(store: store, sidecar: sidecar,
+                                        defaults: UserDefaults(suiteName: "test-\(UUID().uuidString)")!)
+        XCTAssertFalse(notConfigured.syncConfigured, "tests/fakes ⇒ no hint")
+    }
+
+    @MainActor
+    func testClearPerformanceByDate() async { // spec: Sync / Settings (clear by age)
+        let store = FakeReminderStore()
+        let (svc, sidecar) = makeService(store)
+        let now = day("2026-08-06")
+        store.seed(ReminderData(id: "recent", title: "Recent", isCompleted: true, completionDate: day("2026-08-01")))
+        store.seed(ReminderData(id: "old", title: "Old", isCompleted: true, completionDate: day("2026-01-01")))
+        sidecar.setMetadata(PerformanceMetadata(rating: 80), for: "recent")
+        sidecar.setMetadata(PerformanceMetadata(rating: 40), for: "old")
+        await svc.refresh()
+        XCTAssertEqual(Set(svc.ratedItems.map(\.title)), ["Recent", "Old"])
+
+        await svc.clearPerformance(olderThanDays: 30, now: now)
+        XCTAssertEqual(sidecar.metadata(for: "old"), .empty, "ratings older than the cutoff are cleared")
+        XCTAssertEqual(sidecar.metadata(for: "recent").rating, 80, "recent ratings are kept")
+
+        await svc.clearPerformance(olderThanDays: nil, now: now)
+        XCTAssertEqual(sidecar.metadata(for: "recent"), .empty, "clear-all removes the rest")
+    }
+
     private final class SpyWidgetPublisher: WidgetSnapshotPublishing {
         var last: WidgetSnapshot?
         func publish(_ snapshot: WidgetSnapshot) { last = snapshot }

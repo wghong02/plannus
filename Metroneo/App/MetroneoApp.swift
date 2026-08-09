@@ -23,7 +23,12 @@ struct MetroneoApp: App {
         #else
         reminderStore = EventKitReminderStore()
         #endif
-        let sidecar = try! PerformanceSidecarStore(inMemory: fakeReminders)
+        // Mirror the sidecar to the user's private iCloud database (DESIGN — Sync);
+        // stays local under UI tests, when the user isn't signed into iCloud, or if the
+        // CloudKit container can't be built (graceful fallback — never crashes).
+        let sidecar = try! PerformanceSidecarStore(
+            inMemory: fakeReminders,
+            cloudKitContainerID: fakeReminders ? nil : "iCloud.com.gladiolus.Metroneo")
         // UI tests get a volatile defaults suite (cleared each launch) so companion
         // settings — needs-rating window, list scope — don't leak across runs.
         let taskDefaults: UserDefaults
@@ -42,7 +47,8 @@ struct MetroneoApp: App {
         // Publish widget snapshots on refresh in the real app (not under UI tests).
         let widgetPublisher: WidgetSnapshotPublishing? = fakeReminders ? nil : AppWidgetPublisher()
         let service = TaskService(store: reminderStore, sidecar: sidecar,
-                                  defaults: taskDefaults, widgetPublisher: widgetPublisher)
+                                  defaults: taskDefaults, widgetPublisher: widgetPublisher,
+                                  syncConfigured: !fakeReminders)
         service.observeExternalChanges() // refresh on EKEventStoreChanged (R1.3)
         _taskService = StateObject(wrappedValue: service)
     }
